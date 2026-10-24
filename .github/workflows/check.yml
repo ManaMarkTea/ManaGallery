@@ -8,31 +8,6 @@ jobs:
         with:
           fetch-depth: 0
       - run: python3 scripts/check-source.py
-      - run: python3 scripts/sync-shared.py --check
-  nextjs:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: nextjs
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: nextjs/package-lock.json
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-      - run: npm ci
-      - run: python scripts/check-repository.py
-      - run: sudo apt-get update && sudo apt-get install -y restic
-      - run: python -m unittest discover -s tests -p 'test_*.py'
-      - run: npm run lint
-      - run: npm run test:tools
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm test
   php:
     runs-on: ubuntu-latest
     defaults:

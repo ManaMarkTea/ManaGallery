@@ -1,20 +1,9 @@
-# Install your own ManaGallery
+# Install ManaGallery
 
-You do not need an existing gallery, its database, an AI assistant or a cloud API
-key. Download this repository and choose **one** application. They provide separate
-implementations of the gallery; do not install both to run one site.
+Requires PHP 8.3+ with PDO SQLite, GD/WebP, mbstring, Sodium, fileinfo and sessions.
+Your gallery data is stored in SQLite and local files.
 
-| Your situation | Choose |
-| --- | --- |
-| Shared hosting with PHP, or the simplest server setup | PHP |
-| You want to develop a React application and already operate Node services | Next.js |
-
-Both store data on persistent local disk using SQLite. A single conventional
-server works; the default setup is not a serverless or multiple-replica deployment.
-An AWS EC2 instance, DigitalOcean Droplet or another Linux VM can run the PHP
-recipe below. You still need a domain and a server or hosting account.
-
-## 1. Try it on your computer
+## Try it locally
 
 [Download the ZIP](https://github.com/ManaMarkTea/ManaGallery/archive/refs/heads/main.zip)
 and extract it, or run:
@@ -24,9 +13,6 @@ git clone https://github.com/ManaMarkTea/ManaGallery.git
 cd ManaGallery
 ```
 
-### PHP
-
-Install PHP 8.3+ with PDO SQLite, GD (including WebP), mbstring, Sodium and fileinfo.
 On Windows, open PowerShell inside `php` and run `./scripts/setup-php.ps1` once;
 use `./.tools/php/php.exe` wherever the following instructions say `php`.
 On Ubuntu 24.04, the packages are `php-cli php-sqlite3 php-gd php-mbstring`.
@@ -38,53 +24,25 @@ php scripts/initialize.php
 php -S 127.0.0.1:8081 -t public router.php
 ```
 
-Open **http://127.0.0.1:8081**. You should see an empty gallery with a Community art
-category, not somebody else's artwork. The initializer checks extensions and
-refuses to replace existing data. If you skip it, the application shows fictional
-demo entries instead. Do not use the built-in PHP server for public hosting.
+Open **http://127.0.0.1:8081**. The gallery starts empty.
+`initialize.php` checks your PHP extensions and creates the database and catalogue.
+It won't overwrite an existing installation.
 
 1. Click Create an account and register your own username and password.
 2. In a second terminal, inside `php`, run `php scripts/promote-admin.php YOUR_USERNAME`.
 3. Refresh the page. Open Admin, then Settings to set your gallery name and limits.
 4. Upload a JPEG, PNG or WebP image. Check the gallery and artwork page.
 
-There are no default accounts or passwords. The first registrant does not become
-an administrator automatically. Administrator uploads publish directly; other
-members' uploads need approval unless you grant them automatic approval.
+Admin uploads publish immediately. Other members' uploads wait for approval
+unless you give them automatic approval in Admin.
 
-Core PHP use needs no Node, Python, Composer or separate database server.
-Email notifications are optional and additionally require Composer/PHPMailer,
-OpenSSL, an SMTP mailbox and a scheduled task. See [notification setup](../php/docs/comment-notifications.md).
+For email notifications, install Composer dependencies and configure an SMTP
+mailbox and scheduled task. See [email setup](../php/docs/comment-notifications.md).
 
-### Next.js
+## Shared hosting
 
-Install Node.js 24 with npm. Python 3 is required for the administrator command.
-From the repository root:
-
-```sh
-cd nextjs
-npm ci
-npm run dev
-```
-
-Open **http://localhost:3000**, register an account, then run in another terminal:
-
-```sh
-cd nextjs
-python scripts/promote-admin.py YOUR_USERNAME
-```
-
-Refresh the page and open Admin. This version starts with an empty gallery.
-For development, that is enough. For hosting, read [Next.js deployment](../nextjs/docs/deployment.md)
-and its [configuration requirements](../nextjs/Readme.md#configuration).
-`npm run dev` is not the public production server. Do not use the PHP hosting
-instructions for the Node application.
-
-## 2. Put PHP on shared hosting
-
-This is a manual installation, not a one-click hosting installer. Your account
-needs PHP 8.3+, the extensions above, a private directory outside the document
-root, and terminal access for initialization and administrator setup.
+You'll need terminal access and a private folder outside your website's public
+root. Select PHP 8.3 or newer in your hosting panel.
 
 1. Upload the `php` directory into a private location, for example
    `/home/YOUR_ACCOUNT/Apps/ManaGallery/app`. Do not upload it as the public root.
@@ -108,14 +66,14 @@ launcher, assets and web settings belong in the public root. Configure backups
 before accepting real submissions; hosting-provider backups alone have not been
 verified by this application. See [deployment and backups](../php/docs/shared-hosting.md).
 
-## 3. Put PHP on an Ubuntu 24.04 server
+## Ubuntu 24.04 server
 
-Use this path for a single Ubuntu 24.04 VM with a domain pointing to its public IP.
-Run commands as your normal SSH user with sudo access. Replace `gallery.example.com`
-with your own domain in both the configuration and certificate command.
-These commands install Apache; use a fresh VM without another server already
-occupying ports 80 and 443. Allow inbound TCP 80/443 in your cloud firewall and
-preserve SSH access.
+These steps work with a fresh Ubuntu 24.04 VM, such as an EC2 instance or
+DigitalOcean Droplet. Point your domain at the server and allow ports 80 and 443
+in its firewall. Keep SSH access enabled.
+
+Connect over SSH as a user with sudo access. Replace `gallery.example.com` with
+your domain. These commands install Apache; they assume ports 80 and 443 are free.
 
 ```sh
 sudo apt-get update
@@ -187,8 +145,6 @@ only a running database's main file can lose changes in its WAL journal.
 | Blank page or HTTP 500 | Read your hosting PHP error log, or `/var/log/apache2/managallery-error.log` for the VM recipe. |
 | No Admin link | Promote the exact registered username using the same application/data directory. |
 
-The PHP version does not yet provide self-service password recovery or passkeys.
-Keep a working administrator account and terminal access. Email, Discord,
-analytics, remote backups and automated updates are separate optional setup steps;
-none is silently enabled by these instructions. Migration tools for the original
-installation are not needed or included in the public distribution.
+Password recovery and passkeys aren't available yet. Keep your administrator
+password and SSH access somewhere safe. Email, Discord, analytics and remote
+backups each need their own setup.
