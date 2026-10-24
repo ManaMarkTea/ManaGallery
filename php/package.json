@@ -1,10 +1,17 @@
 {
-  "name": "rendergallery-php-prototype",
+  "name": "managallery",
   "private": true,
   "scripts": {
-    "test": "node tests/browser.mjs"
+    "test": "node tests/browser.mjs",
+    "build:viewer": "node scripts/build-viewer.mjs",
+    "check:viewer": "node scripts/build-viewer.mjs --check",
+    "models:convert": "node scripts/convert-models.mjs",
+    "test:tools": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1"
+    "@playwright/test": "^1.64.1",
+    "esbuild": "0.28.2",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "three": "0.186.1"
   }
 }

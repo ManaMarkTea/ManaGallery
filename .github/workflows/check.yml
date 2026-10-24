@@ -41,18 +41,23 @@ jobs:
           cache: npm
           cache-dependency-path: php/package-lock.json
       - run: python3 scripts/check-source.py
-      - run: sudo apt-get update && sudo apt-get install -y php-cli php-mbstring php-sqlite3 php-gd composer
-      - run: composer install --no-dev --no-interaction --no-plugins --no-scripts
+      - run: sudo apt-get update && sudo apt-get install -y php-cli php-mbstring php-sqlite3 php-gd php-zip php-curl composer
+      - run: composer install --no-interaction --no-plugins --no-scripts
+      - run: composer format:check
       - run: find src templates public tests scripts -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: php tests/gallery.php
       - run: php --ri sodium
       - run: php tests/accounts.php
       - run: php tests/comments.php
       - run: php tests/backups.php
+      - run: php tests/drive-backup.php
       - run: php tests/notifications.php
       - run: php -d disable_functions=mail tests/mail-sender.php
       - run: php tests/smtp.php
       - run: python3 tests/backup-verification.py
+      - run: python3 tests/incremental-backup.py
       - run: npm ci
+      - run: npm run check:viewer
+      - run: npm run test:tools
       - run: npx playwright install --with-deps chromium
       - run: npm test

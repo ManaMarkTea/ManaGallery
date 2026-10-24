@@ -1,10 +1,20 @@
 {
-    "require": {
-        "php": ">=8.3",
-        "phpmailer/phpmailer": "^7.1"
-    },
-    "config": {
-        "allow-plugins": false,
-        "sort-packages": true
+  "require": {
+    "php": ">=8.3",
+    "phpmailer/phpmailer": "^7.1"
+  },
+  "config": {
+    "allow-plugins": false,
+    "sort-packages": true,
+    "platform": {
+      "php": "8.3.0"
     }
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.95"
+  },
+  "scripts": {
+    "format": "php-cs-fixer fix",
+    "format:check": "php-cs-fixer fix --dry-run --diff"
+  }
 }

@@ -2,7 +2,9 @@
 import { createRequire } from 'node:module';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { triangleGLB } from './fixture-model.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +29,7 @@ try{
     try{const response=await fetch('http://127.0.0.1:8082/');if(response.ok){await response.text();break;}}catch{}
     await new Promise(resolve=>setTimeout(resolve,100));
   }
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});
   const context=await browser.newContext({baseURL:'http://127.0.0.1:8082'});
   const page=await context.newPage();
   await page.goto('/');assert.equal(await page.locator('.art-card').count(),0);
@@ -56,10 +58,13 @@ try{
   await page.goto('/admin/settings');
   assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'ManaGallery');
   assert.equal(await page.getByLabel('Site description',{exact:true}).inputValue(),'A community art gallery.');
+  assert.equal(await page.locator('.main-nav a').filter({hasText:'Discord'}).count(),0);
+  await page.getByLabel('Discord invite link',{exact:true}).fill('https://discord.gg/fixtureInvite');
   await page.getByLabel('Site name',{exact:true}).fill('My new gallery');
   await page.getByRole('button',{name:'Save settings',exact:true}).click();
   await page.reload();
   assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'My new gallery');
+  assert.equal(await page.locator('.main-nav a').filter({hasText:'Discord'}).getAttribute('href'),'https://discord.gg/fixtureInvite');
   assert(await page.getByRole('link',{name:'My new gallery home',exact:true}).isVisible());
   const memberContext=await browser.newContext({baseURL:'http://127.0.0.1:8082'});
   const member=await memberContext.newPage();await register(member,'gallery_member');
@@ -102,6 +107,24 @@ try{
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:path.join(output,`fresh-gallery-${width}.png`)});
   }
+  const model=triangleGLB(),original=Buffer.from('Fictional original model bytes');
+  const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+  const modelFolder=path.join(storage,'attachments/models');mkdirSync(modelFolder,{recursive:true});
+  writeFileSync(path.join(modelFolder,'42.3ds'),original);writeFileSync(path.join(modelFolder,'42.glb'),model);
+  writeFileSync(path.join(modelFolder,'catalogue.json'),JSON.stringify({version:1,entries:{42:{name:'Triangle.3ds',bytes:original.length,sha256:sha(original)}}}));
+  writeFileSync(path.join(modelFolder,'previews.json'),JSON.stringify({version:1,geometryOnly:true,entries:{42:{bytes:model.length,sha256:sha(model),sourceSha256:sha(original)}}}));
+  writeFileSync(env.RENDERGALLERY_PHP_CATALOGUE,JSON.stringify({items:[{id:42,title:'Fictional triangle',author:'Fixture artist',categoryId:1,software:'other',image:'',fullImage:'',date:'2026-01-01'}],categories:[{id:1,name:'Community art'}]}));
+  assert.equal((await guest.request.get('http://127.0.0.1:8082/download/42?format=glb',{maxRedirects:0})).status(),303);
+  await page.goto('http://127.0.0.1:8082/art/42');
+  await page.getByRole('button',{name:'View 3D model',exact:true}).click();
+  await page.locator('#model-viewer [data-model-state="ready"]').waitFor();
+  await page.getByRole('button',{name:'Reset view',exact:true}).click();
+  await page.screenshot({path:path.join(output,'model-viewer.png')});
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#model-viewer').isVisible(),false);
+  await page.locator('#model-viewer canvas').waitFor({state:'detached'});
+  await page.goto('http://127.0.0.1:8082/');const card=page.locator('[data-model-preview]').first();
+  await card.hover();await card.locator('[data-model-state="ready"]').waitFor();
+  await page.mouse.move(0,0);await card.locator('canvas').waitFor({state:'detached'});
   await guest.close();await memberContext.close();await context.close();
   console.log('Passed fresh initialization, no-overwrite, registration, admin setup, settings, upload approval/privacy, CSRF, favorites and responsive gallery checks.');
 }catch(error){console.error(logs.slice(-6000));throw error;}

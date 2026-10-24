@@ -8,6 +8,9 @@ Dependencies retain their own licenses; the project license does not replace the
   distributing dependencies. See https://github.com/PHPMailer/PHPMailer.
 - Playwright and other test dependencies retain the licenses included in their
   npm packages. See each package's `LICENSE` and package metadata.
+- The model viewer and offline converter use Three.js under the MIT license.
+  Its notice is distributed in `php/public/assets/three-LICENSE.txt`; bundled
+  notices accompany `model-viewer.js`. See https://github.com/mrdoob/three.js.
 - Open-source fonts, if used by the selected theme, retain their respective font
   licenses and are not relicensed by this project.
 

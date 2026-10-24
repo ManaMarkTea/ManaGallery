@@ -24,8 +24,11 @@ VS Code dev container. Prefer a normal PHP installation? Use the
 ## Documentation
 
 - [PHP features and development](php/README.md)
+- [Code guide for developers](docs/code-guide.md)
 - [Shared hosting and updates](php/docs/shared-hosting.md)
 - [Email and Discord notifications](php/docs/comment-notifications.md)
+- [Direct Google Drive backups](php/docs/drive-backups.md)
+- [3D model previews](php/docs/models.md)
 - [Dependency licenses](THIRD_PARTY_NOTICES.md)
 
 Keep databases, uploads, credentials and local configuration out of Git.

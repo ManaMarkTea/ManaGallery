@@ -1,19 +1,29 @@
 <?php
+
 declare(strict_types=1);
 
-function private_directory(): string {
-    $path = getenv('RENDERGALLERY_PHP_DATA_DIR') ?: dirname(__DIR__).'/storage';
-    if (!is_dir($path) && !mkdir($path, 0700, true) && !is_dir($path)) throw new RuntimeException('Cannot create private storage');
+function private_directory(): string
+{
+    $path = getenv('RENDERGALLERY_PHP_DATA_DIR') ?: dirname(__DIR__) . '/storage';
+    if (!is_dir($path) && !mkdir($path, 0700, true) && !is_dir($path)) {
+        throw new RuntimeException('Cannot create private storage');
+    }
     $path = realpath($path);
-    $public = realpath(dirname(__DIR__).'/public');
-    if ($path === $public || str_starts_with($path, $public.DIRECTORY_SEPARATOR)) throw new RuntimeException('Private storage cannot be public');
+    $public = realpath(dirname(__DIR__) . '/public');
+    if ($path === $public || str_starts_with($path, $public . DIRECTORY_SEPARATOR)) {
+        throw new RuntimeException('Private storage cannot be public');
+    }
+
     return $path;
 }
-function database(): PDO {
+function database(): PDO
+{
     static $connection;
-    if ($connection) return $connection;
-    $file = private_directory().'/php-gallery.sqlite';
-    $connection = new PDO('sqlite:'.$file, null, null, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
+    if ($connection) {
+        return $connection;
+    }
+    $file = private_directory() . '/php-gallery.sqlite';
+    $connection = new PDO('sqlite:' . $file, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $connection->exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
     $connection->exec("CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY, username TEXT NOT NULL, username_key TEXT NOT NULL UNIQUE,
@@ -50,18 +60,30 @@ function database(): PDO {
       CREATE TABLE IF NOT EXISTS artwork_viewers (artwork_id INTEGER NOT NULL, viewer_key TEXT NOT NULL, claimed_by TEXT, first_seen INTEGER NOT NULL, PRIMARY KEY(artwork_id,viewer_key));");
     @chmod($file, 0600);
     query("INSERT OR IGNORE INTO settings(key,value) VALUES ('throttle_secret',?)", [bin2hex(random_bytes(32))]);
+
     return $connection;
 }
-function query(string $sql, array $values=[]): PDOStatement {
+function query(string $sql, array $values = []): PDOStatement
+{
     $statement = database()->prepare($sql);
     $statement->execute($values);
+
     return $statement;
 }
-function log_activity(int $userId, string $action, string $target): void {
-    query('INSERT INTO activity(user_id,action,target,created) VALUES (?,?,?,?)', [$userId,$action,$target,time()]);
+function log_activity(int $userId, string $action, string $target): void
+{
+    query('INSERT INTO activity(user_id,action,target,created) VALUES (?,?,?,?)', [$userId, $action, $target, time()]);
 }
-function with_write(callable $work): mixed {
+function with_write(callable $work): mixed
+{
     database()->exec('BEGIN IMMEDIATE');
-    try { $result=$work(); database()->exec('COMMIT'); return $result; }
-    catch (Throwable $error) { database()->exec('ROLLBACK'); throw $error; }
+    try {
+        $result = $work();
+        database()->exec('COMMIT');
+
+        return $result;
+    } catch (Throwable $error) {
+        database()->exec('ROLLBACK');
+        throw $error;
+    }
 }

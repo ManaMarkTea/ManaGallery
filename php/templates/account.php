@@ -1,25 +1,43 @@
 <?php
-$mine=array_values(array_filter($all['items'],fn($item)=>($item['ownerId']??null)===(int)$user['id']));
-$archive=array_values(array_filter($all['items'],fn($item)=>($item['archiveOwnerId']??null)===(int)$user['id']));
-$ids=query('SELECT artwork_id FROM favorites WHERE user_id=? ORDER BY created DESC',[$user['id']])->fetchAll(PDO::FETCH_COLUMN);
-$lookup=[]; foreach($all['items'] as $item) $lookup[$item['id']]=$item;
-$favorites=[]; foreach($ids as $id) if (isset($lookup[$id]) && can_view($user,$lookup[$id])) $favorites[]=$lookup[$id];
-$tab=param($_GET,'tab','uploads'); if (!in_array($tab,['uploads','archive','favorites'],true)) $tab='uploads';
-$collection=match($tab){'archive'=>$archive,'favorites'=>$favorites,default=>array_reverse($mine)};
-[$cards,$page,$pages,$total]=admin_page($collection,24);
+$mine = array_values(array_filter($all['items'], fn ($item) => ($item['ownerId'] ?? null) === (int)$user['id']));
+$archive = array_values(array_filter($all['items'], fn ($item) => ($item['archiveOwnerId'] ?? null) === (int)$user['id']));
+$ids = query('SELECT artwork_id FROM favorites WHERE user_id=? ORDER BY created DESC', [$user['id']])->fetchAll(PDO::FETCH_COLUMN);
+$lookup = [];
+foreach ($all['items'] as $item) {
+    $lookup[$item['id']] = $item;
+}
+$favorites = [];
+foreach ($ids as $id) {
+    if (isset($lookup[$id]) && can_view($user, $lookup[$id])) {
+        $favorites[] = $lookup[$id];
+    }
+}
+$tab = param($_GET, 'tab', 'uploads');
+if (!in_array($tab, ['uploads', 'archive', 'favorites'], true)) {
+    $tab = 'uploads';
+}
+$collection = match($tab) {
+    'archive' => $archive,'favorites' => $favorites,default => array_reverse($mine)
+};
+[$cards,$page,$pages,$total] = admin_page($collection, 24);
 ?>
 <main class="prototype-account"><p class="eyebrow">YOUR COMMUNITY SPACE</p><h1>Hello, <?= e($user['username']) ?></h1>
 <?php if ($notice): ?><p class="notice" role="status"><?= e($notice) ?></p><?php endif; ?>
-<div class="account-toolbar"><a class="button" href="/upload">Upload artwork +</a><?php if ($user['role']==='admin'): ?><a class="button button-quiet" href="/admin">Administration →</a><?php endif; ?><span class="help">Uploads <?= $user['auto_approve'] ? 'automatically approved' : 'require admin approval' ?> · <?= number_format(upload_usage((int)$user['id'])/1048576,1) ?> / <?= number_format(site_settings()['memberQuotaMiB']) ?> MiB</span></div>
-<nav class="collection-tabs" aria-label="Your collections"><?php foreach(['uploads'=>['Your uploads',count($mine)],'archive'=>['Owned archive',count($archive)],'favorites'=>['Favorites',count($favorites)]] as $key=>[$label,$count]): ?><a href="/account?tab=<?= $key ?>" <?= $tab===$key ? 'aria-current="page"' : '' ?>><?= $label ?> <span><?= number_format($count) ?></span></a><?php endforeach; ?></nav>
-<section class="prototype-panel"><h2><?= match($tab){'archive'=>'Your archived artwork','favorites'=>'Your favorites',default=>'Your uploads'} ?> (<?= number_format($total) ?>)</h2>
-<?php if (!$cards): ?><p><?= match($tab){'archive'=>'No verified archive ownership is linked to this account.','favorites'=>'Save artwork from its detail page to build your collection.',default=>'Your first world belongs here. Upload an image to get started.'} ?></p><?php else: ?><div class="member-upload-grid"><?php foreach($cards as $item): ?><article class="member-upload"><a href="/art/<?= (int)$item['id'] ?>"><img src="<?= e(media_url($item)) ?>" alt="<?= e($item['title']) ?>"><h3><?= e($item['title']) ?></h3></a><p class="status-pill"><?= !empty($item['hidden']) ? 'Hidden by moderation' : (!empty($item['pending']) ? 'Awaiting approval' : 'Published') ?></p><div class="review-actions"><?php if (can_edit($user,$item)): ?><a href="/art/<?= (int)$item['id'] ?>/edit">Edit artwork →</a><?php endif; ?><?php if ($tab==='favorites'): ?><form action="/favorite" method="post"><?= csrf_field() ?><input type="hidden" name="artwork" value="<?= (int)$item['id'] ?>"><input type="hidden" name="return" value="account"><button class="quiet-button">Remove favorite</button></form><?php endif; ?></div></article><?php endforeach; ?></div><?php endif; ?>
-<?php admin_pagination('/account',$page,$pages,'Collection pages'); ?></section>
+<div class="account-toolbar"><a class="button" href="/upload">Upload artwork +</a><?php if ($user['role'] === 'admin'): ?><a class="button button-quiet" href="/admin">Administration →</a><?php endif; ?><span class="help">Uploads <?= $user['auto_approve'] ? 'automatically approved' : 'require admin approval' ?> · <?= number_format(upload_usage((int)$user['id']) / 1048576, 1) ?> / <?= number_format(site_settings()['memberQuotaMiB']) ?> MiB</span></div>
+<nav class="collection-tabs" aria-label="Your collections"><?php foreach (['uploads' => ['Your uploads', count($mine)], 'archive' => ['Owned archive', count($archive)], 'favorites' => ['Favorites', count($favorites)]] as $key => [$label,$count]): ?><a href="/account?tab=<?= $key ?>" <?= $tab === $key ? 'aria-current="page"' : '' ?>><?= $label ?> <span><?= number_format($count) ?></span></a><?php endforeach; ?></nav>
+<section class="prototype-panel"><h2><?= match($tab) {
+    'archive' => 'Your archived artwork','favorites' => 'Your favorites',default => 'Your uploads'
+} ?> (<?= number_format($total) ?>)</h2>
+<?php if (!$cards): ?><p><?= match($tab) {
+    'archive' => 'No verified archive ownership is linked to this account.','favorites' => 'Save artwork from its detail page to build your collection.',default => 'Your first world belongs here. Upload an image to get started.'
+} ?></p><?php else: ?><div class="member-upload-grid"><?php foreach ($cards as $item): ?><article class="member-upload"><a href="/art/<?= (int)$item['id'] ?>"><img src="<?= e(media_url($item)) ?>" alt="<?= e($item['title']) ?>"><h3><?= e($item['title']) ?></h3></a><p class="status-pill"><?= !empty($item['hidden']) ? 'Hidden by moderation' : (!empty($item['pending']) ? 'Awaiting approval' : 'Published') ?></p><div class="review-actions"><?php if (can_edit($user, $item)): ?><a href="/art/<?= (int)$item['id'] ?>/edit">Edit artwork →</a><?php endif; ?><?php if ($tab === 'favorites'): ?><form action="/favorite" method="post"><?= csrf_field() ?><input type="hidden" name="artwork" value="<?= (int)$item['id'] ?>"><input type="hidden" name="return" value="account"><button class="quiet-button">Remove favorite</button></form><?php endif; ?></div></article><?php endforeach; ?></div><?php endif; ?>
+<?php admin_pagination('/account', $page, $pages, 'Collection pages'); ?></section>
 <section class="prototype-panel"><h2>Change password</h2><?php if ($formError): ?><p class="form-error" role="alert"><?= e($formError) ?></p><?php endif; ?><form class="prototype-form" action="/account/password" method="post"><?= csrf_field() ?><label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label><label>New password<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" required></label><button>Change password</button></form></section>
-<?php notification_schema();$contact=query('SELECT * FROM notification_contacts WHERE identity=?',[notification_identity((int)$user['id'])])->fetch(); ?>
+<?php notification_schema();
+$contact = query('SELECT * FROM notification_contacts WHERE identity=?', [notification_identity((int)$user['id'])])->fetch(); ?>
 <section class="prototype-panel"><h2>Comment email notifications</h2><p>Your email address stays private. Choose which conversations you want to follow.</p>
-<?php if($contact && !$contact['confirmed']): ?><p class="help">Confirm your email address using the link we sent before notifications can begin.</p><?php endif; ?>
-<form class="prototype-form" action="/account/notifications" method="post"><?= csrf_field() ?><label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" value="<?= e($contact['email']??'') ?>" required></label>
+<?php if ($contact && !$contact['confirmed']): ?><p class="help">Confirm your email address using the link we sent before notifications can begin.</p><?php endif; ?>
+<form class="prototype-form" action="/account/notifications" method="post"><?= csrf_field() ?><label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" value="<?= e($contact['email'] ?? '') ?>" required></label>
 <label class="checkbox-field"><input type="checkbox" name="notify_owner" <?= !empty($contact['owner_enabled']) ? 'checked' : '' ?>> Email me when someone comments on my artwork</label>
 <label class="checkbox-field"><input type="checkbox" name="notify_thread" <?= !empty($contact['thread_enabled']) ? 'checked' : '' ?>> Email me about new comments on artwork I have commented on</label>
 <button>Save email preferences</button></form><p class="help">New or changed addresses require confirmation. Each comment email includes an unsubscribe link. Email confirmation does not enable password recovery.</p></section>

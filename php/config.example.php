@@ -6,6 +6,8 @@ return [
     'notification_origin' => 'https://gallery.example.com',
     'notification_from' => 'notifications@gallery.example.com',
     // 'discord_webhook' belongs only in config.local.php, never in Git.
+    // Optional starting value; editable in Admin > Settings.
+    'discord_invite' => '',
     'catalogue' => __DIR__ . '/storage/gallery.json',
     'media_root' => __DIR__ . '/storage/archive',
 ];

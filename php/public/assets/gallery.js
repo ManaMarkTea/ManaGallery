@@ -1,4 +1,24 @@
 "use strict";
+let modelModule,hoverModel,hoverCard,modelRequest=0;
+function modelTools(){
+  const version=new URL(document.querySelector('script[src*="/assets/gallery.js"]').src).search;
+  return modelModule??=import('./model-viewer.js'+version);
+}
+function stopModelHover(){modelRequest++;hoverModel?.dispose();hoverModel=null;hoverCard=null;}
+function startModelHover(card){
+  if(card===hoverCard)return;
+  stopModelHover();hoverCard=card;const request=modelRequest;
+  modelTools().then(module=>{if(request===modelRequest && card.isConnected)hoverModel=module.createPreview(card.querySelector('.art-image-wrap'),card.dataset.modelPreview);}).catch(()=>{});
+}
+document.addEventListener('pointerover',event=>{const card=event.target.closest('[data-model-preview]');if(card)startModelHover(card);});
+document.addEventListener('pointerout',event=>{if(hoverCard && !hoverCard.contains(event.relatedTarget))stopModelHover();});
+document.addEventListener('focusin',event=>{const card=event.target.closest('[data-model-preview]');if(card)startModelHover(card);});
+document.addEventListener('focusout',event=>{if(hoverCard && !hoverCard.contains(event.relatedTarget))stopModelHover();});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-model-open]');if(!button)return;
+  stopModelHover();button.disabled=true;
+  modelTools().then(module=>module.openModel(document.querySelector('#model-viewer'),button.dataset.modelUrl)).catch(()=>{button.textContent='3D preview unavailable';}).finally(()=>{button.disabled=false;});
+});
 for (const sortForm of document.querySelectorAll('form[data-comment-sort]')) {
   sortForm.querySelector('select').addEventListener('change',()=>sortForm.requestSubmit());
   sortForm.querySelector('button').hidden=true;
