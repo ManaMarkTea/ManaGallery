@@ -3,11 +3,12 @@
 declare(strict_types=1);
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 umask(0077);
-$home=rtrim(getenv('HOME'),'/');$release=realpath($argv[1]??'');
-$app=$home.'/rendergallery-php/app';$public=$home.'/public_html_sub/rendergallery-php';
-if(!$release || !str_starts_with($release,$home.'/rendergallery-php/releases/'))throw new RuntimeException('Expected a private release staging directory.');
+$release=realpath($argv[1]??'');$app=realpath($argv[2]??'');$public=realpath($argv[3]??'');
+if(!$release || !$app || !$public || !is_dir($release) || !is_file($app.'/public/index.php') || !is_dir($public))throw new RuntimeException('Usage: deploy-shared-host.php PRIVATE_RELEASE PRIVATE_APP PUBLIC_ROOT');
+foreach([$app,$release] as $private)if($private===$public || str_starts_with($private,$public.'/'))throw new RuntimeException('Application and release must remain outside the public root.');
+if($release===$app || str_starts_with($release,$app.'/') || str_starts_with($app,$release.'/'))throw new RuntimeException('Release and application must be separate directories.');
 $manifest=json_decode(file_get_contents($release.'/manifest.json'),true,512,JSON_THROW_ON_ERROR);
-$lock=fopen($home.'/rendergallery-php/deploy.lock','c');if(!$lock || !flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Another update is running.');
+$lock=fopen($app.'/storage/deploy.lock','c');if(!$lock || !flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Another update is running.');
 $prepared=[];
 foreach($manifest['files'] as $entry){
     $path=$entry['path'];

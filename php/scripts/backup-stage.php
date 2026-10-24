@@ -1,9 +1,11 @@
 <?php
-// Fixed-site, consistent source for the off-server backup pull. CLI only.
+// Consistent source for the off-server backup pull. CLI only.
 declare(strict_types=1);
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 umask(0077);
-$home=rtrim(getenv('HOME'),'/');$app=$home.'/rendergallery-php/app';$base=$home.'/rendergallery-php/backup-export';
+$private=realpath(getenv('MANAGALLERY_PRIVATE_ROOT')?:'');$public=realpath(getenv('MANAGALLERY_PUBLIC_ROOT')?:'');
+if(!$private || !$public || $private===$public || str_starts_with($private,$public.'/'))throw new RuntimeException('Set separate MANAGALLERY_PRIVATE_ROOT and MANAGALLERY_PUBLIC_ROOT directories.');
+$app=$private.'/app';$base=$private.'/backup-export';
 if(!is_dir($base))mkdir($base,0700);
 if(is_link($base))throw new RuntimeException('Unsafe export directory');
 $exportLock=fopen($base.'/export.lock','c');if(!$exportLock || !flock($exportLock,LOCK_EX))throw new RuntimeException('Cannot lock export');
@@ -36,7 +38,7 @@ try{
         }
     }
     foreach(['config.example.php','config.local.php','composer.json','composer.lock','storage/gallery.json','storage/legacy-routes.json'] as $relative)if(is_file($app.'/'.$relative))$link($app.'/'.$relative,$relative);
-    foreach(['index.php','.htaccess','.user.ini'] as $name)$link($home.'/public_html_sub/rendergallery-php/'.$name,'deployment/'.$name);
+    foreach(['index.php','.htaccess','.user.ini'] as $name)$link($public.'/'.$name,'deployment/'.$name);
     $db=new PDO('sqlite:'.$app.'/storage/php-gallery.sqlite',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$db->exec('PRAGMA busy_timeout=30000');
     $snapshot=$stage.'/storage/php-gallery.sqlite';$db->prepare('VACUUM INTO ?')->execute([$snapshot]);$db=null;
     $verify=new PDO('sqlite:'.$snapshot);if($verify->query('PRAGMA integrity_check')->fetchColumn()!=='ok')throw new RuntimeException('Database integrity failed');

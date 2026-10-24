@@ -1,5 +1,4 @@
-# Midphase supports selecting PHP independently for this document root.
-AddHandler x-httpd-php85 .php
+# Apache example. Select PHP 8.3+ using your hosting provider settings.
 Options -Indexes
 DirectoryIndex index.php
 <IfModule mod_rewrite.c>

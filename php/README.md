@@ -3,7 +3,7 @@
 The standalone PHP implementation shares styling and moderation rules with the
 adjacent Next.js version. This distribution includes fictional demo data, not a live
 installation or its accounts, media, logs or deployment inventory. See
-[shared-hosting setup](docs/midphase.md) and [notifications](docs/comment-notifications.md).
+[shared-hosting setup](docs/shared-hosting.md) and [notifications](docs/comment-notifications.md).
 
 ## Run locally
 
@@ -123,7 +123,7 @@ See [port status](docs/parity.md) for completed and remaining features.
 
 Set the subdomain's document root to **this project's `public/` only**. Upload application `src/`, `templates/`, config and private `storage/` outside that document root. Do not upload `.tools/`, test fixtures, Git metadata or the Next.js database. Apache-compatible hosts need mod_rewrite/AllowOverride for `public/.htaccess`; `router.php` is local-only. If the panel cannot select a nested document root, put the contents of `public/` in the web root and adjust the two private include paths explicitly—never expose the entire project.
 
-The Midphase deployment uses a private app directory and a separate public launcher/assets directory. Host extensions, SQLite, public routing and HTTPS have been checked. See [deployment notes](docs/midphase.md) before updating code. The site is deliberately noindex and new registration starts closed on the host.
+A shared-hosting deployment uses a private app directory and a separate public launcher/assets directory. Host extensions, SQLite, public routing and HTTPS have been checked. See [deployment notes](docs/shared-hosting.md) before updating code. The site is deliberately noindex and new registration starts closed on the host.
 
 ## Checks
 

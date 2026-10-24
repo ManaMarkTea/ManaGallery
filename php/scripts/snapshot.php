@@ -4,11 +4,11 @@ declare(strict_types=1);
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 umask(0077);
 $app=realpath($argv[1]??'');$base=realpath($argv[2]??'');$key=realpath($argv[3]??'');
-if(!$app || !$base || !$key || !is_file($app.'/storage/php-gallery.sqlite') || str_contains($base,'/public_html') || str_starts_with($base,$app.'/'))throw new RuntimeException('Usage: snapshot-midphase.php PRIVATE_APP PRIVATE_BACKUP_DIR PASSWORD_FILE');
+if(!$app || !$base || !$key || !is_file($app.'/storage/php-gallery.sqlite') || str_contains($base,'/public_html') || str_starts_with($base,$app.'/'))throw new RuntimeException('Usage: snapshot.php PRIVATE_APP PRIVATE_BACKUP_DIR PASSWORD_FILE');
 $password=rtrim(file_get_contents($key),"\r\n");if(strlen($password)<32)throw new RuntimeException('A strong independent recovery password is required');
 if(!ZipArchive::isEncryptionMethodSupported(ZipArchive::EM_AES_256,true))throw new RuntimeException('AES-256 encrypted ZIP support is required');
 $job=fopen($base.'/snapshot.lock','c');if(!$job || !flock($job,LOCK_EX|LOCK_NB))throw new RuntimeException('A snapshot is already running');
-$name='bryce5-'.gmdate('Ymd\THis\Z').'-'.bin2hex(random_bytes(3));$stage=$base.'/'.$name.'.stage';mkdir($stage,0700);
+$name='managallery-'.gmdate('Ymd\THis\Z').'-'.bin2hex(random_bytes(3));$stage=$base.'/'.$name.'.stage';mkdir($stage,0700);
 $files=[];
 $add=function(string $source,string $relative)use($stage,&$files):void {
     if(!is_file($source) || is_link($source))throw new RuntimeException('Unsafe snapshot source: '.$relative);

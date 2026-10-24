@@ -1,4 +1,4 @@
-"""Rootless off-server backups for the Midphase gallery; credentials stay private."""
+"""Rootless off-server backups for a shared-hosted gallery; credentials stay private."""
 import configparser,fcntl,json,os,shutil,subprocess,sys,tempfile,time
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
@@ -116,7 +116,7 @@ def local_backup():
         if created<time.time()-2*3600 or created>time.time()+300:raise RuntimeError('Hosting snapshot is not fresh; refusing to report an old transfer as a new backup')
         verify(STAGE,'backup')
         if not (REPOSITORY/'config').exists():run(['/usr/bin/restic','-r',REPOSITORY,'init'],'backup')
-        run(['/usr/bin/restic','-r',REPOSITORY,'backup','--ignore-ctime','--host','bryce5-midphase','--tag',TAG,STAGE],'backup')
+        run(['/usr/bin/restic','-r',REPOSITORY,'backup','--ignore-ctime','--host','managallery-shared-host','--tag',TAG,STAGE],'backup')
         run(['/usr/bin/restic','-r',REPOSITORY,'check'],'backup')
 
 def cloud_copy():

@@ -19,15 +19,15 @@ Production `config.local.php` needs `notification_mail_enabled => true`,
 leave mail disabled; local tests inject fake transports and never contact Discord.
 The mail service must permit the sender; acceptance alone does not prove delivery.
 
-Install `scripts/send-notifications.php` outside the document root. On Midphase,
+Install `scripts/send-notifications.php` outside the document root. On shared hosting,
 add this command to the hosting control panel's scheduled tasks every five minutes:
 
 ```sh
-/usr/php85/usr/bin/php /home/hosting-user/rendergallery-php/send-notifications.php /home/hosting-user/rendergallery-php/app
+php /private/ManaGallery/send-notifications.php /private/ManaGallery/app
 ```
 
 The installed sender also detects its neighboring `app` directory when the final
-application-path argument is omitted. SSH `crontab` access is disabled by the hosting provider. Until the panel task is
+application-path argument is omitted. Some hosts disable SSH `crontab` access; use their scheduled-task panel instead. Until the panel task is
 created, jobs remain queued; deploying the application does not start a scheduler.
 The worker's `--status` option prints aggregate counts without addresses or tokens.
 Admin → Site health shows its last run, counts and sanitized delivery errors.
@@ -65,7 +65,7 @@ Keep the entire `vendor` directory outside the document root next to `src`.
 The initial installation package includes it. Code-only updates preserve it;
 dependency updates must install the new locked vendor tree separately.
 
-After creating the mailbox in Midphase, run in an interactive SSH terminal:
+After creating the mailbox with your email provider, run in an interactive SSH terminal:
 
 ```sh
 /usr/php85/usr/bin/php ~/rendergallery-php/configure-smtp.php

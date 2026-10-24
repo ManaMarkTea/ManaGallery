@@ -10,7 +10,9 @@ foreach($status['jobs'] as $name=>$job){
     foreach(['lastSuccess','lastRun','nextRun'] as $field)if(isset($job[$field]) && !is_int($job[$field]))throw new RuntimeException('Invalid timestamp');
     if(strlen($job['log']??'')>18000)throw new RuntimeException('Log too large');
 }
-$file=rtrim(getenv('HOME'),'/').'/rendergallery-php/app/storage/backup-status.json';
+$private=realpath(getenv('MANAGALLERY_PRIVATE_ROOT')?:'');
+if(!$private)throw new RuntimeException('Set MANAGALLERY_PRIVATE_ROOT.');
+$file=$private.'/app/storage/backup-status.json';
 $lock=fopen($file.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('Cannot lock status');
 if(is_file($file) && (json_decode(file_get_contents($file),true)['checked']??0)>$status['checked'])exit("Newer status already published.\n");
 $temp=$file.'.next-'.bin2hex(random_bytes(4));if(file_put_contents($temp,json_encode($status,JSON_THROW_ON_ERROR))===false)throw new RuntimeException('Cannot publish status');chmod($temp,0600);if(!rename($temp,$file))throw new RuntimeException('Cannot replace status');
