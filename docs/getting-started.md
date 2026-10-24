@@ -1,5 +1,8 @@
 # Install ManaGallery
 
+With Docker installed, use the shorter [Docker setup](docker.md). The steps below
+are for installing PHP directly.
+
 Requires PHP 8.3+ with PDO SQLite, GD/WebP, mbstring, Sodium, fileinfo and sessions.
 Your gallery data is stored in SQLite and local files.
 

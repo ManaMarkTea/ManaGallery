@@ -1,6 +1,26 @@
 name: Gallery checks
 on: [push, pull_request]
 jobs:
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: managallery-ci
+      MANAGALLERY_PORT: 18080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: docker compose config --quiet
+      - run: docker compose up --build -d --wait
+      - run: python3 scripts/test-docker.py
+      - run: npx --yes @devcontainers/cli up --workspace-folder .
+      - run: |
+          npx --yes @devcontainers/cli exec --workspace-folder . php -r 'exit(extension_loaded("gd") && extension_loaded("pdo_sqlite") && is_file(getenv("RENDERGALLERY_PHP_CATALOGUE")) ? 0 : 1);'
+      - if: always()
+        run: docker compose logs --tail 80
+      - if: always()
+        run: docker compose down --volumes
   source:
     runs-on: ubuntu-latest
     steps:

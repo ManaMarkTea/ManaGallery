@@ -1,0 +1,24 @@
+{
+  "name": "ManaGallery",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "target": "development"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+  },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/php",
+  "containerEnv": {
+    "RENDERGALLERY_PHP_DATA_DIR": "/var/lib/managallery",
+    "RENDERGALLERY_PHP_CATALOGUE": "/var/lib/managallery/gallery.json",
+    "RENDERGALLERY_PHP_MEDIA_ROOT": "/var/lib/managallery/archive"
+  },
+  "mounts": [
+    "source=managallery-dev-${devcontainerId},target=/var/lib/managallery,type=volume"
+  ],
+  "forwardPorts": [8081],
+  "postCreateCommand": "sh ../.devcontainer/setup.sh",
+  "overrideCommand": true,
+  "remoteUser": "root"
+}

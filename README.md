@@ -3,24 +3,23 @@
 A PHP community art gallery with uploads, comments, favorites and an admin panel.
 Free to use and modify under the MIT license.
 
-**[Installation guide](docs/getting-started.md)** — local setup, shared hosting and Ubuntu servers.
+**[Installation guide](docs/getting-started.md)** â€” local setup, shared hosting and Ubuntu servers.
 
-Requires PHP 8.3+ and SQLite. For a local trial, install the
-[required extensions](docs/getting-started.md), then run:
-
-```sh
-cd php
-php scripts/initialize.php
-php -S 127.0.0.1:8081 -t public router.php
-```
-
-Open http://127.0.0.1:8081, create an account, then grant it admin access:
+## Quick start with Docker
 
 ```sh
-php scripts/promote-admin.php YOUR_USERNAME
+docker compose up --build -d
 ```
 
-The built-in server is for local use. Follow the installation guide to put it online.
+Open http://localhost:8080 and register an account. Then run:
+
+```sh
+docker compose exec --user www-data web php scripts/promote-admin.php YOUR_USERNAME
+```
+
+See [Docker setup](docs/docker.md) for updates, data storage and the optional
+VS Code dev container. Prefer a normal PHP installation? Use the
+[installation guide](docs/getting-started.md).
 
 ## Documentation
 
