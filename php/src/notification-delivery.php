@@ -15,7 +15,7 @@ function notification_mail(string $to,string $subject,string $body,?string $unsu
         }catch(Throwable $error){throw new RuntimeException('Authenticated SMTP delivery failed');}
         finally{$mail->smtpClose();}
     }
-    $headers=['From'=>'RenderGallery <'.$from.'>','Sender'=>$from,'MIME-Version'=>'1.0','Content-Type'=>'text/plain; charset=UTF-8','Content-Transfer-Encoding'=>'8bit','Auto-Submitted'=>'auto-generated'];
+    $headers=['From'=>'ManaGallery <'.$from.'>','Sender'=>$from,'MIME-Version'=>'1.0','Content-Type'=>'text/plain; charset=UTF-8','Content-Transfer-Encoding'=>'8bit','Auto-Submitted'=>'auto-generated'];
     if($unsubscribe)$headers['List-Unsubscribe']='<'.$unsubscribe.'>';
     // Scheduled CLI jobs have the hosting-account domain as their default
     // envelope sender. Specify our validated site address as well as From.
@@ -32,7 +32,7 @@ function notification_smtp_client(array $smtp,string $from): \PHPMailer\PHPMaile
     $mail->SMTPSecure=$smtp['port']===465 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
     $mail->SMTPDebug=0;$mail->Timeout=15;$mail->getSMTPInstance()->Timelimit=30;
     $mail->SMTPOptions=['ssl'=>['verify_peer'=>true,'verify_peer_name'=>true,'allow_self_signed'=>false]];
-    $mail->CharSet='UTF-8';$mail->Encoding='quoted-printable';$mail->setFrom($from,'RenderGallery');$mail->Sender=$from;
+    $mail->CharSet='UTF-8';$mail->Encoding='quoted-printable';$mail->setFrom($from,'ManaGallery');$mail->Sender=$from;
     return $mail;
 }
 function notification_discord(array $comment,array $art): bool {
@@ -77,11 +77,11 @@ function notification_deliver(array $all,?callable $mailer=null,?callable $disco
             if($job['kind']==='discord')$ok=$discord($comment,$art);
             elseif($job['kind']==='confirmation'){
                 $url=notification_origin().'/notifications/confirm?account='.rawurlencode($job['identity']).'&token='.$job['payload'];
-                $ok=$mailer($job['email'],'Confirm your RenderGallery email address',"Confirm this email address for comment notifications:\n\n".$url."\n\nThis link expires in 24 hours. If you did not request it, ignore this email.\n",null);
+                $ok=$mailer($job['email'],'Confirm your ManaGallery email address',"Confirm this email address for comment notifications:\n\n".$url."\n\nThis link expires in 24 hours. If you did not request it, ignore this email.\n",null);
             }else{
                 $unsubscribe=notification_unsubscribe($job['identity']);
-                $body="There is a new comment on artwork you follow on RenderGallery.\n\nRead the comment:\n".notification_origin().'/art/'.$art['id']."#comments\n\nManage preferences: ".notification_origin()."/account\nUnsubscribe from comment emails: ".$unsubscribe."\n";
-                $ok=$mailer($job['email'],'New comment on RenderGallery',$body,$unsubscribe);
+                $body="There is a new comment on artwork you follow on ManaGallery.\n\nRead the comment:\n".notification_origin().'/art/'.$art['id']."#comments\n\nManage preferences: ".notification_origin()."/account\nUnsubscribe from comment emails: ".$unsubscribe."\n";
+                $ok=$mailer($job['email'],'New comment on ManaGallery',$body,$unsubscribe);
             }
             if(!$ok)throw new RuntimeException('Transport did not accept notification');
             query("UPDATE notification_queue SET state='sent',sent=?,last_error=NULL,payload='' WHERE id=?",[time(),$job['id']]);$counts['sent']++;

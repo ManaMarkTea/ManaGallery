@@ -31,6 +31,10 @@ try{
   const context=await browser.newContext({baseURL:'http://127.0.0.1:8082'});
   const page=await context.newPage();
   await page.goto('/');assert.equal(await page.locator('.art-card').count(),0);
+  assert(await page.getByRole('link',{name:'ManaGallery home',exact:true}).isVisible());
+  await page.goto('/about');
+  assert.equal(await page.getByRole('heading',{name:'About ManaGallery',exact:true}).count(),1);
+  assert(!(await page.locator('body').innerText()).includes('RenderGallery'));
   for(const route of ['/storage/gallery.json','/config.local.php','/scripts/initialize.php'])assert.equal((await page.request.get(route)).status(),404);
   const register=async(target,name)=>{
     await target.goto('/register');
@@ -44,8 +48,13 @@ try{
   execFileSync(php,['scripts/promote-admin.php','gallery_owner'],{cwd:root,env});
   await page.goto('/admin');assert.equal((await page.request.get('/admin')).status(),200);
   await page.goto('/admin/settings');
+  assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'ManaGallery');
+  assert.equal(await page.getByLabel('Site description',{exact:true}).inputValue(),'A community art gallery.');
   await page.getByLabel('Site name',{exact:true}).fill('My new gallery');
   await page.getByRole('button',{name:'Save settings',exact:true}).click();
+  await page.reload();
+  assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'My new gallery');
+  assert(await page.getByRole('link',{name:'My new gallery home',exact:true}).isVisible());
   const memberContext=await browser.newContext({baseURL:'http://127.0.0.1:8082'});
   const member=await memberContext.newPage();await register(member,'gallery_member');
   assert.equal((await member.request.post('/upload',{form:{title:'forged'}})).status(),403);

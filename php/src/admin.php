@@ -2,7 +2,7 @@
 declare(strict_types=1);
 function site_settings(): array {
     $values=query('SELECT key,value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
-    return ['siteName'=>$values['siteName']??'RenderGallery','description'=>$values['description']??'A community gallery for Bryce, Blender and beyond.',
+    return ['siteName'=>$values['siteName']??'ManaGallery','description'=>$values['description']??'A community art gallery.',
         'registrationOpen'=>($values['registrationOpen']??'true')==='true','uploadsOpen'=>($values['uploadsOpen']??'true')==='true',
         'memberQuotaMiB'=>(int)($values['memberQuotaMiB']??1024),'galleryQuotaMiB'=>(int)($values['galleryQuotaMiB']??2048),
         'analyticsId'=>preg_match('/^G-[A-Z0-9]{6,20}$/D',$values['analyticsId']??'') ? $values['analyticsId'] : '',

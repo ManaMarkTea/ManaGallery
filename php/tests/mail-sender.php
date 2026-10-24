@@ -12,7 +12,7 @@ if(!function_exists('mail')) {
 require dirname(__DIR__).'/src/notification-delivery.php';
 if(!notification_mail('recipient@example.invalid','Fictional test','Fictional body'))throw new RuntimeException('Transport failed');
 [$to,$headers,$parameters]=$calls[0];
-if($headers['From']!=='RenderGallery <notifications@example.invalid>' || $headers['Sender']!==$sender || $parameters!=='-f'.escapeshellarg($sender))throw new RuntimeException('Header and envelope senders must match');
+if($headers['From']!=='ManaGallery <notifications@example.invalid>' || $headers['Sender']!==$sender || $parameters!=='-f'.escapeshellarg($sender))throw new RuntimeException('Header and envelope senders must match');
 foreach(["bad@example.invalid\r\nBcc: other@example.invalid",'"bad sender"@example.invalid','bad;command@example.invalid'] as $bad){
     $sender=$bad;$rejected=false;try{notification_mail('recipient@example.invalid','Test','Test');}catch(RuntimeException $e){$rejected=true;}
     if(!$rejected || count($calls)!==1)throw new RuntimeException('Unsafe sender reached mail transport');
