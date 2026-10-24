@@ -1,0 +1,31 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/src/gallery.php';
+function check(bool $condition,string $message): void { if (!$condition) throw new RuntimeException($message); }
+$data=demo();
+check(count(browse($data,[])['items'])===24,'Default size');
+check(count(browse($data,['perPage'=>'48'])['items'])===48,'48 items');
+check(count(browse($data,['perPage'=>'96'])['items'])===96,'96 items');
+check(browse($data,['perPage'=>'99999','page'=>'999999'])['page']===13,'Size and page bounds');
+check(browse($data,['page'=>'-9'])['page']===1,'Negative page');
+check(browse($data,['q'=>['bad'],'perPage'=>['bad']])['total']===302,'Array input safe');
+$filtered=browse($data,['software'=>'blender','category'=>'2','q'=>'quiet']);
+check($filtered['total']>0,'Combined filters');
+foreach ($filtered['items'] as $item) check($item['software']==='blender' && $item['categoryId']===2,'Filters respected');
+check(browse($data,['q'=>'nothing matches this'])['total']===0,'Empty results');
+check(str_contains(e('<script>"&'),'&lt;script&gt;'),'Escaped HTML');
+check(!str_contains(gallery_url([],['q'=>'"/><script>']),'"'),'Escaped query');
+check(media_path(['image'=>'/gallery/../../outside.png'],false,__DIR__)===null,'Traversal rejected');
+check(media_path(['image'=>'https://example.com/image.jpg'],false,__DIR__)===null,'Remote URLs rejected');
+check(media_path(['image'=>'/gallery/executable.php'],false,__DIR__)===null,'Executable rejected');
+require dirname(__DIR__).'/src/legacy.php';
+check(legacy_destination('/details.php',['image_id'=>'7747','sid'=>'private'])==='/art/7747','Old artwork links');
+check(legacy_destination('/categories.php',['cat_id'=>'6'])==='/?category=6#gallery','Old category links');
+check(legacy_destination('/download.php',['image_id'=>'250'])==='/download/250','Old member downloads');
+check(legacy_destination('/download.php',['image_id'=>'42'],['downloads'=>[42=>'/media/42/full']])==='/media/42/full','Original photo download bookmarks');
+check(legacy_destination('/details.php',['image_id'=>['7747']])===null,'Invalid old IDs rejected');
+check(legacy_destination('/details.php',['image_id'=>'7747'."\r\nLocation: https://invalid.example"])===null,'Header injection rejected');
+check(!str_contains(legacy_destination('/index.php',['sid'=>'secret','page'=>'2']),'secret'),'Old session IDs dropped');
+check(legacy_destination('/data/media/6/Old%20Art.jpg',[],['media'=>['/data/media/6/Old Art.jpg'=>'/media/42/full']])==='/media/42/full','Original image bookmarks');
+check(str_contains(legacy_destination('/member.php',['action'=>'showprofile','user_id'=>'327'],['artists'=>[327=>'Fictional artist']]),'artist=Fictional%20artist'),'Original artist bookmarks');
+echo "Passed gallery and legacy bookmark checks.\n";

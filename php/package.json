@@ -1,0 +1,10 @@
+{
+  "name": "rendergallery-php-prototype",
+  "private": true,
+  "scripts": {
+    "test": "node tests/browser.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}
