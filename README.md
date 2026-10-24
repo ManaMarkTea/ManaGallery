@@ -1,4 +1,4 @@
-# RenderGallery
+# ManaGallery
 
 This MIT-licensed repository contains two independent gallery implementations.
 It starts with a clean publication history; private installation history is excluded.

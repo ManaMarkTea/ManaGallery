@@ -23,7 +23,7 @@ The PHP prototype is a separate application and database, not a live mirror. Acc
 | AdSense configuration and live integration | Pending in PHP; Next.js implementation available |
 | Encrypted scheduled backups and restore checks | Pending for PHP. Next.js VPS backup jobs do not cover the separate PHP deployment |
 | Shared-host deployment/update tooling | Running on Midphase with valid HTTPS; source-only updates verify checksums and retain rollback copies. Automatic GitHub-to-host deployment still pending |
-| GitHub source / automated CI | Private ManaMarkTea/RenderGallery-Community repository; source/history publication scan and automated checks exclude runtime data |
+| GitHub source / automated CI | Private ManaMarkTea/ManaGallery repository; source/history publication scan and automated checks exclude runtime data |
 | Forums and new live ratings | Pending in both |
 
 Current automated checks cover credentials/migration, trust, sessions, CSRF, moderation, private media, favorites, views, original/GLB transport and checksums, admin permissions/settings/categories, mobile layouts and no-JavaScript filtering. They do not establish that an arbitrary shared host has compatible extensions or that production backup/recovery is configured.
