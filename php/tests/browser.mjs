@@ -47,6 +47,12 @@ try{
   assert.equal((await page.request.get('/admin')).status(),403);
   execFileSync(php,['scripts/promote-admin.php','gallery_owner'],{cwd:root,env});
   await page.goto('/admin');assert.equal((await page.request.get('/admin')).status(),200);
+  await page.goto('/admin/health');
+  assert(await page.getByText('PHP version',{exact:true}).isVisible());
+  const phpVersion=execFileSync(php,['-r','echo PHP_VERSION;'],{encoding:'utf8'});
+  assert(await page.getByText(phpVersion,{exact:true}).isVisible());
+  assert(await page.getByText('SQLite version',{exact:true}).isVisible());
+  assert(await page.getByText('Upload limit',{exact:true}).isVisible());
   await page.goto('/admin/settings');
   assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'ManaGallery');
   assert.equal(await page.getByLabel('Site description',{exact:true}).inputValue(),'A community art gallery.');

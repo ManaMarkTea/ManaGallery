@@ -42,6 +42,8 @@ assert request('/register', data)[2].endswith('/account')
 assert request('/admin')[0] == 403, 'Registration must not grant administrator access.'
 command('exec', '-T', '--user', 'www-data', 'web', 'php', 'scripts/promote-admin.php', 'docker_owner')
 assert request('/admin')[0] == 200
+assert b'PHP version' in request('/admin/health')[1]
+assert b'apache2handler' in request('/admin/health')[1]
 assert request('/upload', b'title=forged')[0] == 403
 token = csrf('/upload')
 image = command('exec', '-T', '--user', 'www-data', 'web', 'php', '-r', '$i=imagecreatetruecolor(24,24);imagepng($i);')

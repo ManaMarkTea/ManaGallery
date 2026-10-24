@@ -1076,3 +1076,6 @@
 .backup-log summary { color:#4052bd; cursor:pointer; font-size:12px; }
 .backup-log pre { max-height:300px; overflow:auto; padding:12px; background:#f4f7fb; border:1px solid #dfe6ef; border-radius:7px; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.7 Consolas,monospace; color:#26354b; }
 @media(max-width:760px) { .backup-job-grid { grid-template-columns:1fr; } }
+.health-runtime { display:grid; grid-template-columns:minmax(9rem,1fr) minmax(0,2fr); gap:10px 20px; font-size:13px; }
+.health-runtime dt { color:#64748b; }
+.health-runtime dd { margin:0; overflow-wrap:anywhere; color:#192b45; }
