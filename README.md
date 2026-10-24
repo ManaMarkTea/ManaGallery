@@ -1,12 +1,14 @@
 # ManaGallery
 
+**New here? [Start here: install your own gallery](docs/getting-started.md).**
+
 This MIT-licensed repository contains two independent gallery implementations.
 It starts with a clean publication history; private installation history is excluded.
 Both implementations are independently runnable and deployable.
 
 | Folder | Contents |
 | --- | --- |
-| [php/](php/README.md) | PHP application, Midphase deployment, account migration and notification tools |
+| [php/](php/README.md) | PHP application, shared hosting and notification tools |
 | [nextjs/](nextjs/Readme.md) | Next.js application, VPS deployment and its own tests |
 | [shared/](shared/README.md) | Common stylesheet, comment moderation rules and SVG assets |
 | [scripts/](scripts/) | Repository publication checks and shared-file synchronization |
@@ -21,7 +23,7 @@ npm run dev
 
 ```sh
 cd php
-composer install --no-dev --no-plugins --no-scripts
+php scripts/initialize.php
 php -S 127.0.0.1:8081 -t public router.php
 ```
 
@@ -45,8 +47,7 @@ directory on the server. CI rejects differences between shared sources and copie
 checks source/history for private files, and runs each application's full checks.
 
 The applications do **not** share a live database, sessions, configuration, uploads,
-authentication implementation or backend code. The PHP migration tools accept the
-Next.js project explicitly; from `php/`, the adjacent source is now `../nextjs`.
+authentication implementation or backend code. Choose either application for your installation. No migration is required.
 
 ## Private setup inventory
 

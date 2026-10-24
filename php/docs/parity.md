@@ -26,4 +26,4 @@ The PHP prototype is a separate application and database, not a live mirror. Acc
 | GitHub source / automated CI | Private ManaMarkTea/ManaGallery repository; source/history publication scan and automated checks exclude runtime data |
 | Forums and new live ratings | Pending in both |
 
-Current automated checks cover credentials/migration, trust, sessions, CSRF, moderation, private media, favorites, views, original/GLB transport and checksums, admin permissions/settings/categories, mobile layouts and no-JavaScript filtering. They do not establish that an arbitrary shared host has compatible extensions or that production backup/recovery is configured.
+Automated checks cover core accounts, notifications, backups and a fresh-gallery browser journey. Migration-specific integration tests are retained in the private installation repository. They do not establish that an arbitrary shared host has compatible extensions or that production backup/recovery is configured.

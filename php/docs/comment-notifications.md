@@ -2,16 +2,8 @@
 
 Approved new comments queue private email notifications for the artwork owner
 and earlier participants, according to their separate account preferences.
-Existing imported comments can establish participation, but imports never send
-notifications. Self-notifications and duplicate email recipients are excluded.
-New or changed addresses need confirmation; confirmed legacy addresses retain
-the original `user_showemail` opt-in without making the address public.
-
-The CLI-only `scripts/import-original-notifications.php APP OLD_GALLERY
---check|--apply` reads the original MySQL gallery using its private config. It
-matches imported IDs or unambiguous artwork ownership, never display names.
-Existing preferences are preserved. It also copies the original Discord webhook
-into private configuration. No addresses or credentials are printed.
+Self-notifications and duplicate email recipients are excluded. New or changed
+email addresses require confirmation and are never made public.
 
 Production `config.local.php` needs `notification_mail_enabled => true`,
 `notification_from` (a sender on the site's domain), and `notification_origin`
