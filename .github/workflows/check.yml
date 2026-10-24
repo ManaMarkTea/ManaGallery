@@ -47,6 +47,7 @@ jobs:
       - run: php tests/gallery.php
       - run: php --ri sodium
       - run: php tests/accounts.php
+      - run: php tests/comments.php
       - run: php tests/backups.php
       - run: php tests/notifications.php
       - run: php -d disable_functions=mail tests/mail-sender.php

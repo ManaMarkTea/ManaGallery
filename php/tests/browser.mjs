@@ -68,6 +68,7 @@ try{
   await member.goto('/upload');
   await member.getByLabel('Title',{exact:true}).fill('My first artwork');
   await member.getByLabel('Category',{exact:true}).selectOption('1');
+  await member.getByLabel('Software',{exact:true}).selectOption('blender');
   await member.getByLabel('Artwork image',{exact:true}).setInputFiles({name:'art.png',mimeType:'image/png',buffer:png});
   await member.getByRole('button',{name:'Submit for review',exact:true}).click();
   await member.waitForURL(/\/art\/[0-9]+$/);const artwork=member.url();
@@ -80,7 +81,22 @@ try{
   await member.getByRole('button',{name:'Save to favorites',exact:false}).click();
   await member.waitForURL(artwork);
   assert(await member.getByRole('button',{name:'Remove favorite',exact:false}).isVisible());
+  for(const text of ['First comment fixture','Second comment fixture']){
+    await member.getByLabel('Leave a comment',{exact:true}).fill(text);
+    await member.getByRole('button',{name:'Post comment',exact:true}).click();
+    await member.waitForURL(artwork+'#comments');
+  }
+  assert.deepEqual(await member.locator('.comment-body').allTextContents(),['First comment fixture','Second comment fixture']);
+  await member.getByLabel('Comment order',{exact:true}).selectOption('newest');
+  await member.waitForURL(/commentSort=newest/);
+  assert.deepEqual(await member.locator('.comment-body').allTextContents(),['Second comment fixture','First comment fixture']);
+  const nojs=await browser.newContext({javaScriptEnabled:false});const fallback=await nojs.newPage();
+  await fallback.goto(artwork);await fallback.getByLabel('Comment order',{exact:true}).selectOption('newest');
+  await fallback.getByRole('button',{name:'Apply',exact:true}).click();await fallback.waitForURL(/commentSort=newest/);
+  assert.equal((await fallback.locator('.comment-body').allTextContents())[0],'Second comment fixture');
+  await nojs.close();
   await page.goto('/');assert.equal(await page.locator('.art-card').count(),1);
+  assert.equal(await page.locator('.software-card-label').getAttribute('data-software'),'blender');
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:900});
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

@@ -1,4 +1,8 @@
 "use strict";
+for (const sortForm of document.querySelectorAll('form[data-comment-sort]')) {
+  sortForm.querySelector('select').addEventListener('change',()=>sortForm.requestSubmit());
+  sortForm.querySelector('button').hidden=true;
+}
 const form = document.querySelector('#gallery-filters');
 if (form) {
   let timer, controller, requestId = 0, composing = false;

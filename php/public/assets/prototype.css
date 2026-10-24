@@ -107,3 +107,12 @@ body:has(#image-viewer[open]) { overflow: hidden; }
 .artwork-comments .comment-body { margin:10px 0 0; }
 .comment-compose .comment-compose-footer .help { margin:0; }
 @media(max-width:700px) { .artwork-comments .comment { padding:16px 12px; grid-template-columns:30px minmax(0,1fr); } .comment-date { text-align:left; } }
+.comment-sort { display:flex; justify-content:flex-end; gap:10px; margin:0 0 18px; }
+.comment-sort label { display:flex; align-items:center; gap:10px; font-size:12px; }
+.comment-sort select { width:auto; }
+.software-card-label[data-software="bryce"] { background:#dceafb; color:#244d7b; }
+.software-card-label[data-software="blender"] { background:#ffdfbd; color:#713800; }
+.software-card-label[data-software="daz-studio"] { background:#e6ddf8; color:#50357b; }
+.software-card-label[data-software="vue"] { background:#d6eddb; color:#245d35; }
+.software-card-label[data-software="terragen"] { background:#cce9e7; color:#205752; }
+.software-card-label[data-software="other"] { background:#e5e7eb; color:#394454; }
