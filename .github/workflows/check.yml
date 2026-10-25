@@ -65,6 +65,7 @@ jobs:
       - run: php tests/smtp.php
       - run: python3 tests/backup-verification.py
       - run: python3 tests/incremental-backup.py
+      - run: python3 tests/drive-connection.py
       - run: npm ci
       - run: npm run check:viewer
       - run: npm run test:tools

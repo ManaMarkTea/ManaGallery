@@ -19,6 +19,33 @@ access. Keep the client secret and refresh token outside the web root and Git.
 This permission covers files created or explicitly opened with that app, rather
 than an absolute folder boundary. It does not grant access to your entire Drive.
 
+Use your own OAuth client, rather than a third-party app's shared API quota.
+On your computer:
+
+1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
+   and enable **Google Drive API**.
+2. Open **Google Auth Platform**. Set an app name and support email under
+   **Branding**, choose **External** under **Audience**, and add only
+   `https://www.googleapis.com/auth/drive.file` under **Data Access**.
+3. Under **Audience**, publish the app to Production for ongoing backups.
+   Google's Testing mode expires Drive refresh tokens after seven days.
+4. Under **Clients**, create a **Desktop app** OAuth client and download its JSON.
+5. With Python 3 installed, run this from `php/`, using private paths:
+
+   ```sh
+   python scripts/connect-drive.py /private/oauth-client.json /private/drive-connection.json
+   ```
+
+Approve the browser prompt. The tool checks the granted permission, creates a
+new backup folder in My Drive and saves the four connection fields privately.
+It uses a local callback and PKCE; it never prints the refresh token. You can
+move the created folder in Drive afterward. Older app-created folders do not
+automatically become accessible to a different OAuth app.
+
+See Google's [setup guide](https://developers.google.com/workspace/drive/api/quickstart/python)
+and [refresh-token rules](https://developers.google.com/identity/protocols/oauth2#expiration).
+Python is only used for this one-time connection; scheduled backups run in PHP.
+
 Save a private JSON configuration with these fields:
 
 ```json
