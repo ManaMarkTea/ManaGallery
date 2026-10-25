@@ -2,7 +2,10 @@
 
 Signed-in members can download original model files and open available GLB
 previews. Hovering a model card shows a small rotating preview. The artwork page
-has a larger viewer with orbit, zoom and reset controls.
+opens its larger viewer automatically, with orbit, zoom, reset and fullscreen
+controls. The preview image is a fallback if the viewer cannot load. Use the
+view selector for materials, wireframe, normals, UVs or vertex colors. Models
+without UVs or vertex colors show a short explanation for those modes.
 
 Previews use Three.js. Conversion preserves geometry and basic colors; external
 textures are omitted. The original download is unchanged.

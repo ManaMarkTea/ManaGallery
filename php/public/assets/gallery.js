@@ -10,6 +10,17 @@ function startModelHover(card){
   stopModelHover();hoverCard=card;const request=modelRequest;
   modelTools().then(module=>{if(request===modelRequest && card.isConnected)hoverModel=module.createPreview(card.querySelector('.art-image-wrap'),card.dataset.modelPreview);}).catch(()=>{});
 }
+for(const inline of document.querySelectorAll('[data-model-inline]')){
+  const fallback=inline.parentElement.querySelector('[data-image-open]');
+  inline.hidden=false;
+  modelTools().then(async module=>{
+    const preview=module.createPreview(inline.querySelector('[data-model-stage]'),inline.dataset.modelUrl,{interactive:true});
+    module.bindModelControls(inline,preview);
+    await preview.ready;
+    if(inline.querySelector('[data-model-state="ready"]'))fallback.hidden=true;
+    else inline.hidden=true;
+  }).catch(()=>{inline.hidden=true;});
+}
 document.addEventListener('pointerover',event=>{const card=event.target.closest('[data-model-preview]');if(card)startModelHover(card);});
 document.addEventListener('pointerout',event=>{if(hoverCard && !hoverCard.contains(event.relatedTarget))stopModelHover();});
 document.addEventListener('focusin',event=>{const card=event.target.closest('[data-model-preview]');if(card)startModelHover(card);});
@@ -71,6 +82,9 @@ const full = document.querySelector('#view-full');
 if (viewer && full && typeof viewer.showModal === 'function') {
   full.addEventListener('click', event => { event.preventDefault(); viewer.showModal(); });
   document.querySelector('#close-viewer').addEventListener('click', () => viewer.close());
+  for(const imageLink of document.querySelectorAll('[data-image-open]')){
+    imageLink.addEventListener('click',event=>{event.preventDefault();viewer.showModal();});
+  }
 }
 
 for (const time of document.querySelectorAll('time[data-local-time]')) {

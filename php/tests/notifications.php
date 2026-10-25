@@ -5,7 +5,7 @@ $directory = dirname(__DIR__) . '/test-results/notifications-' . bin2hex(random_
 putenv('RENDERGALLERY_PHP_DATA_DIR=' . $directory);
 function config(): array
 {
-    return ['notification_mail_enabled' => true, 'discord_webhook' => 'fixture-webhook-configured', 'notification_origin' => 'https://example.invalid'];
+    return ['notification_mail_enabled' => true, 'discord_webhook' => 'fixture-webhook-configured', 'notification_origin' => 'https://example.invalid', 'discord_upload_webhooks' => [2 => 'fixture-category-two']];
 }
 function find_artwork(array $all, int $id): ?array
 {
@@ -26,6 +26,9 @@ function check(bool $ok, string $message): void
 require dirname(__DIR__) . '/src/database.php';
 require dirname(__DIR__) . '/src/notifications.php';
 require dirname(__DIR__) . '/src/notification-delivery.php';
+$payload = notification_discord_payload(['username' => 'Fictional artist', 'body' => '@everyone Nice work'], ['id' => 42, 'title' => 'Fictional artwork']);
+check($payload['embeds'][0]['image']['url'] === 'https://example.invalid/media/42/preview', 'Discord embeds the public artwork preview');
+check($payload['allowed_mentions']['parse'] === [], 'Discord comments cannot ping everyone');
 notification_schema();
 for ($i = 1;$i <= 5;$i++) {
     query('INSERT INTO users(id,username,username_key,password,created) VALUES (?,?,?,?,?)', [$i, 'user' . $i, 'user' . $i, 'fictional', 1]);
@@ -90,4 +93,35 @@ query('UPDATE users SET disabled=0 WHERE id=2');
 $same = add_comment(3);
 notification_enqueue($same, $all);
 check(!(bool)query("SELECT 1 FROM notification_queue WHERE comment_id=? AND identity='local:1'", [$same])->fetchColumn(), 'Same email as author excluded across identities');
-echo "Notification recipient, moderation, archive, deduplication, unsubscribe, disabled-account, retry and privacy checks passed.\n";
+$art = ['id' => 1000000007, 'ownerId' => 1, 'categoryId' => 2, 'title' => 'New artwork', 'author' => 'Fictional artist', 'filename' => 'fictional-original.webp'];
+notification_enqueue_artwork($art + ['pending' => true]);
+notification_enqueue_artwork($art + ['hidden' => true]);
+notification_enqueue_artwork(array_diff_key($art, ['ownerId' => true]));
+check((int)query('SELECT COUNT(*) FROM notification_artwork_events')->fetchColumn() === 0, 'Pending, hidden and imported artwork never announces');
+notification_enqueue_artwork($art);
+notification_enqueue_artwork($art);
+check((int)query('SELECT COUNT(*) FROM notification_artwork_events')->fetchColumn() === 1, 'Artwork announcements deduplicate publication');
+$announcements = [];
+$announcer = function (array $item) use (&$announcements): bool {
+    $announcements[] = $item;
+
+    return true;
+};
+notification_deliver(['items' => [$art]], $mailer, $discord, 20, $announcer);
+check(count($announcements) === 1 && notification_upload_webhook($announcements[0]) === 'fixture-category-two', 'New artwork uses its category destination');
+$other = array_replace($art, ['id' => 1000000008, 'categoryId' => 3]);
+notification_enqueue_artwork($other);
+check((int)query('SELECT COUNT(*) FROM notification_artwork_events')->fetchColumn() === 1, 'Unmapped categories do not send to the comment channel');
+$hidden = array_replace($art, ['id' => 1000000009]);
+notification_enqueue_artwork($hidden);
+notification_deliver(['items' => [$hidden + ['hidden' => true]]], $mailer, $discord, 20, $announcer);
+check(count($announcements) === 1, 'Hidden artwork is rechecked before dispatch');
+$reused = array_replace($art, ['id' => 1000000010]);
+notification_enqueue_artwork($reused);
+$replacement = array_replace($reused, ['filename' => 'fictional-replacement.webp']);
+notification_enqueue_artwork($replacement);
+notification_deliver(['items' => [$replacement]], $mailer, $discord, 20, $announcer);
+check(count($announcements) === 2 && $announcements[1]['filename'] === 'fictional-replacement.webp', 'Reused upload IDs cancel the old notification and allow a new publication');
+$embed = notification_discord_artwork_payload($art);
+check($embed['allowed_mentions']['parse'] === [] && str_contains($embed['embeds'][0]['image']['url'], '/preview'), 'Announcements have previews and cannot ping members');
+echo "Notification recipient, moderation, archive, deduplication, unsubscribe, disabled-account, retry, artwork routing and privacy checks passed.\n";

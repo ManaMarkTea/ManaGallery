@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/src/auth.php';
 require dirname(__DIR__) . '/src/uploads.php';
 require dirname(__DIR__) . '/src/imported-auth.php';
 require dirname(__DIR__) . '/src/admin.php';
+require dirname(__DIR__) . '/src/branding.php';
 require dirname(__DIR__) . '/src/comments.php';
 require dirname(__DIR__) . '/src/community.php';
 require dirname(__DIR__) . '/src/downloads.php';
@@ -29,6 +30,9 @@ $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $postRoutes = ['/register', '/login', '/logout', '/upload', '/account/password', '/admin/approve', '/admin/trust', '/admin/disable', '/admin/visibility', '/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/comment', '/comment/delete', '/favorite'];
 $adminPages = ['/admin', '/admin/review', '/admin/users', '/admin/artworks', '/admin/comments', '/admin/categories', '/admin/settings', '/admin/activity', '/admin/health'];
 $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notifications/confirm', '/notifications/unsubscribe']);
+$postRoutes[] = '/admin/notifications/send';
+$postRoutes[] = '/admin/icon';
+$postRoutes[] = '/admin/discord';
 if (!in_array($method, ['GET', 'HEAD', 'POST'], true) || ($method === 'POST' && !in_array($path, $postRoutes, true) && !preg_match('~^/art/[1-9][0-9]*/(?:edit|delete)$~D', $path))) {
     header('Allow: GET, HEAD');
     http_response_code(405);
@@ -46,6 +50,9 @@ try {
             header('Location: ' . $legacy, true, 301);
             exit;
         }
+    }
+    if (in_array($method, ['GET', 'HEAD'], true) && preg_match('~^/site-icon/([a-f0-9]{64})\.png$~D', $path, $matches)) {
+        serve_gallery_icon($matches[1], $method);
     }
     start_session();
     $user = current_user();
@@ -95,6 +102,20 @@ try {
             exit('Image not found');
         }
         session_write_close();
+        // Keep published thumbnails in this browser, never in a shared CDN cache.
+        // Access checks above still run whenever the browser revalidates a copy.
+        if ($matches[2] === 'preview' && empty($item['hidden']) && empty($item['pending'])) {
+            $etag = '"' . hash_file('sha256', $file) . '"';
+            header_remove('Pragma');
+            header_remove('Expires');
+            header('Cache-Control: private, max-age=300, must-revalidate');
+            header('Vary: Cookie');
+            header('ETag: ' . $etag);
+            if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
+                http_response_code(304);
+                exit;
+            }
+        }
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . filesize($file));
         if ($method !== 'HEAD') {

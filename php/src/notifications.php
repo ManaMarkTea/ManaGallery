@@ -6,7 +6,67 @@ function notification_schema(): void
 {
     query("CREATE TABLE IF NOT EXISTS notification_contacts(identity TEXT PRIMARY KEY,email TEXT NOT NULL,confirmed INTEGER NOT NULL DEFAULT 0,owner_enabled INTEGER NOT NULL DEFAULT 0,thread_enabled INTEGER NOT NULL DEFAULT 0,confirmation_hash TEXT,confirmation_expires INTEGER,updated INTEGER NOT NULL)");
     query("CREATE TABLE IF NOT EXISTS notification_events(comment_id INTEGER PRIMARY KEY REFERENCES comments(id),created INTEGER NOT NULL)");
+    query('CREATE TABLE IF NOT EXISTS notification_artwork_events(artwork_key TEXT PRIMARY KEY,created INTEGER NOT NULL)');
     query("CREATE TABLE IF NOT EXISTS notification_queue(id INTEGER PRIMARY KEY,kind TEXT NOT NULL,comment_id INTEGER,identity TEXT NOT NULL,email TEXT NOT NULL DEFAULT '',payload TEXT NOT NULL DEFAULT '',state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_attempt INTEGER NOT NULL,created INTEGER NOT NULL,last_error TEXT,sent INTEGER,UNIQUE(kind,comment_id,identity))");
+}
+
+function notification_upload_webhook(array $art): string
+{
+    $category = (int)($art['categoryId'] ?? 0);
+    $saved = query('SELECT value FROM settings WHERE key=?', ['discord_upload:' . $category])->fetchColumn();
+
+    return $saved !== false ? $saved : (config()['discord_upload_webhooks'][$category] ?? '');
+}
+
+function notification_enqueue_artwork(array $art): void
+{
+    if (!isset($art['ownerId']) || empty($art['filename']) || !empty($art['hidden']) || !empty($art['pending']) || notification_upload_webhook($art) === '') {
+        return;
+    }
+    notification_schema();
+    $key = $art['id'] . ':' . $art['filename'];
+    query('INSERT OR IGNORE INTO notification_artwork_events(artwork_key,created) VALUES (?,?)', [$key, time()]);
+    if ((int)query('SELECT changes()')->fetchColumn() !== 1) {
+        return;
+    }
+    $payload = json_encode(['id' => $art['id'], 'filename' => $art['filename']], JSON_THROW_ON_ERROR);
+    query('INSERT INTO notification_queue(kind,identity,payload,next_attempt,created) VALUES (?,?,?,?,?)', ['discord-artwork', $key, $payload, time(), time()]);
+}
+
+function notification_run_now(array $all, int $limit = 5): ?array
+{
+    $lock = fopen(private_directory() . '/notifications-worker.lock', 'c');
+    if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+        return null;
+    }
+    try {
+        require_once __DIR__ . '/notification-delivery.php';
+        $counts = notification_deliver($all, null, null, $limit);
+        query("INSERT INTO settings(key,value) VALUES ('notifications_last_run',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [(string)time()]);
+
+        return $counts;
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+function notification_schedule_delivery(array $all): void
+{
+    static $scheduled = false;
+    if ($scheduled || PHP_SAPI === 'cli' || !function_exists('fastcgi_finish_request')) {
+        return;
+    }
+    $scheduled = true;
+    register_shutdown_function(static function () use ($all): void {
+        session_write_close();
+        fastcgi_finish_request();
+        try {
+            notification_run_now($all, 5);
+        } catch (Throwable) {
+            error_log('Notification delivery deferred to the scheduled worker.');
+        }
+    });
 }
 function notification_identity(int $id): string
 {
@@ -83,6 +143,7 @@ function notification_enqueue(int $id, array $all): void
     if (!empty(config()['discord_webhook'])) {
         query('INSERT OR IGNORE INTO notification_queue(kind,comment_id,identity,next_attempt,created) VALUES (?,?,?,?,?)', ['discord', $id, 'discord', time(), time()]);
     }
+    notification_schedule_delivery($all);
 }
 function notification_preferences(array $user): void
 {

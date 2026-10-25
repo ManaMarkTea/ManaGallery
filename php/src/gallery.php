@@ -138,20 +138,23 @@ function media_url(array $item, bool $full = false): string
 }
 function media_path(array $item, bool $full, string $root): ?string
 {
-    $value = $full ? ($item['fullImage'] ?? $item['image'] ?? '') : ($item['image'] ?? '');
-    if (!is_string($value) || !preg_match('~^/(full|gallery)/[^\x00?#]+\.(jpe?g|png|webp|gif)$~i', $value)) {
-        return null;
-    }
-    if (preg_match('~(?:^|/)[.]{1,2}(?:/|$)~', $value)) {
-        return null;
-    }
     $base = realpath($root);
-    $file = realpath($root . str_replace('/', DIRECTORY_SEPARATOR, $value));
-    if (!$base || !$file || !str_starts_with($file, $base . DIRECTORY_SEPARATOR) || !is_file($file)) {
+    if (!$base) {
         return null;
+    }
+    $candidates = $full ? [$item['fullImage'] ?? '', $item['image'] ?? ''] : [$item['image'] ?? ''];
+    foreach ($candidates as $value) {
+        if (!is_string($value) || !preg_match('~^/(full|gallery)/[^\x00?#]+\.(jpe?g|png|webp|gif)$~i', $value)
+            || preg_match('~(?:^|/)[.]{1,2}(?:/|$)~', $value)) {
+            continue;
+        }
+        $file = realpath($base . str_replace('/', DIRECTORY_SEPARATOR, $value));
+        if ($file && str_starts_with($file, $base . DIRECTORY_SEPARATOR) && is_file($file)) {
+            return $file;
+        }
     }
 
-    return $file;
+    return null;
 }
 
 function render_time(?int $timestamp): void

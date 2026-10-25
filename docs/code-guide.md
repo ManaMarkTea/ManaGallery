@@ -11,6 +11,10 @@ The application uses PHP functions, SQLite and HTML templates. Start here:
 | `php/scripts/` | Installation and maintenance commands |
 | `php/tests/` | PHP checks and browser tests |
 
+`.mjs` files are JavaScript modules used by Node for development tools, model
+conversion and tests. The web server runs PHP and serves the already-built viewer
+bundle; it does not need a Node server.
+
 ## Coming from Java, C# or C++
 
 Variables start with `$`. Functions can declare parameter and return types:

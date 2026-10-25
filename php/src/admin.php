@@ -36,12 +36,17 @@ function recent_application_errors(): array
 
 function site_settings(): array
 {
-    $values = query('SELECT key,value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
+    $values = query("SELECT key,value FROM settings WHERE key <> 'galleryIcon'")->fetchAll(PDO::FETCH_KEY_PAIR);
     $discordInvite = $values['discordInvite'] ?? config()['discord_invite'] ?? '';
 
-    return ['siteName' => $values['siteName'] ?? 'ManaGallery', 'description' => $values['description'] ?? 'A community art gallery.',
-        'registrationOpen' => ($values['registrationOpen'] ?? 'true') === 'true', 'uploadsOpen' => ($values['uploadsOpen'] ?? 'true') === 'true',
-        'memberQuotaMiB' => (int)($values['memberQuotaMiB'] ?? 1024), 'galleryQuotaMiB' => (int)($values['galleryQuotaMiB'] ?? 2048),
+    return [
+        'siteName' => $values['siteName'] ?? 'ManaGallery',
+        'iconHash' => preg_match('/^[a-f0-9]{64}$/D', $values['iconHash'] ?? '') ? $values['iconHash'] : '',
+        'description' => $values['description'] ?? 'A community art gallery.',
+        'registrationOpen' => ($values['registrationOpen'] ?? 'true') === 'true',
+        'uploadsOpen' => ($values['uploadsOpen'] ?? 'true') === 'true',
+        'memberQuotaMiB' => (int)($values['memberQuotaMiB'] ?? 1024),
+        'galleryQuotaMiB' => (int)($values['galleryQuotaMiB'] ?? 2048),
         'analyticsId' => preg_match('/^G-[A-Z0-9]{6,20}$/D', $values['analyticsId'] ?? '') ? $values['analyticsId'] : '',
         'analyticsEnabled' => ($values['analyticsEnabled'] ?? 'false') === 'true',
         'discordInvite' => valid_discord_invite($discordInvite) ? $discordInvite : '',
@@ -143,10 +148,51 @@ function set_member_policy(array $user, string $key, string $action): void
 }
 function admin_action(string $path, array $user, array $all): bool
 {
-    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment'], true)) {
+    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord'], true)) {
         return false;
     }
     require_admin($user);
+    if ($path === '/admin/discord') {
+        $values = [];
+        $submitted = is_array($_POST['webhook'] ?? null) ? $_POST['webhook'] : [];
+        $clear = is_array($_POST['clearWebhook'] ?? null) ? $_POST['clearWebhook'] : [];
+        foreach ($all['categories'] as $category) {
+            $id = (int)$category['id'];
+            $url = is_string($submitted[$id] ?? null) ? trim($submitted[$id]) : '';
+            if ($url !== '' && !preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url)) {
+                throw new DomainException('Enter a Discord webhook URL, or leave it empty to keep the current destination.');
+            }
+            if ($url !== '' || in_array((string)$id, $clear, true)) {
+                $values['discord_upload:' . $id] = $url;
+            }
+        }
+        with_write(function () use ($values, $user): void {
+            foreach ($values as $key => $value) {
+                query('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [$key, $value]);
+            }
+            log_activity((int)$user['id'], 'Discord destinations updated', 'site');
+        });
+        $_SESSION['notice'] = 'Discord destinations saved.';
+        redirect_to('/admin/settings');
+    }
+    if ($path === '/admin/icon') {
+        $values = isset($_POST['reset']) ? ['galleryIcon' => '', 'iconHash' => ''] : gallery_icon_upload($_FILES['galleryIcon'] ?? []);
+        with_write(function () use ($values, $user): void {
+            foreach ($values as $key => $value) {
+                query('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [$key, $value]);
+            }
+            log_activity((int)$user['id'], 'Gallery icon updated', 'site');
+        });
+        $_SESSION['notice'] = 'Gallery icon saved.';
+        redirect_to('/admin/settings');
+    }
+    if ($path === '/admin/notifications/send') {
+        $counts = notification_run_now($all);
+        $_SESSION['notice'] = $counts === null
+            ? 'A notification worker is already running.'
+            : 'Notification batch completed: ' . $counts['sent'] . ' sent, ' . $counts['deferred'] . ' deferred, ' . $counts['failed'] . ' failed.';
+        redirect_to('/admin/health');
+    }
     if ($path === '/admin/member') {
         set_member_policy($user, param($_POST, 'account'), param($_POST, 'action'));
         redirect_to('/admin/users');

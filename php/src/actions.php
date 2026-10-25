@@ -103,7 +103,14 @@ function handle_action(string $path, ?array $user, array $all): void
         throw new DomainException('Uploads are currently paused.');
     }
     if ($path === '/upload') {
-        redirect_to('/art/' . store_upload($user, $all));
+        $id = store_upload($user, $all);
+        $updated = all_artworks(apply_categories(catalogue()));
+        $art = find_artwork($updated, $id);
+        if ($art) {
+            with_write(fn () => notification_enqueue_artwork($art));
+            notification_schedule_delivery($updated);
+        }
+        redirect_to('/art/' . $id);
     }
     if (preg_match('~^/art/([1-9][0-9]*)/edit$~D', $path, $matches)) {
         $item = find_artwork($all, (int)$matches[1]);
@@ -154,6 +161,12 @@ function handle_action(string $path, ?array $user, array $all): void
             query('UPDATE uploads SET approved=1 WHERE id=?', [$id]);
             log_activity((int)$user['id'], 'Upload approved', (string)(UPLOAD_BASE + $id));
         });
+        $updated = all_artworks(apply_categories(catalogue()));
+        $art = find_artwork($updated, UPLOAD_BASE + $id);
+        if ($art) {
+            with_write(fn () => notification_enqueue_artwork($art));
+            notification_schedule_delivery($updated);
+        }
         redirect_to('/admin');
     }
     if ($path === '/admin/trust') {

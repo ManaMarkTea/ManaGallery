@@ -47,7 +47,7 @@ The optional SSH/rsync backup scripts require explicit private deployment settin
 ```sh
 export MANAGALLERY_PRIVATE_ROOT=/private/ManaGallery
 export MANAGALLERY_PUBLIC_ROOT=/public/root
-export RENDERGALLERY_BACKUP_TARGET=backup-user@backup.example.com
+export MANAGALLERY_BACKUP_TARGET=backup-user@backup.example.com
 export PHP_BINARY=php
 bash /private/ManaGallery/backup-push.sh
 ```

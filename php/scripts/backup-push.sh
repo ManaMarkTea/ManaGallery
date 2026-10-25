@@ -5,7 +5,8 @@ base="${MANAGALLERY_PRIVATE_ROOT:?Set MANAGALLERY_PRIVATE_ROOT to the private de
 export MANAGALLERY_PRIVATE_ROOT
 php_binary="${PHP_BINARY:-php}"
 ssh_options=(-4 -i "$base/backup-key" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$base/backup-known-hosts")
-remote=${RENDERGALLERY_BACKUP_TARGET:?Set RENDERGALLERY_BACKUP_TARGET to your backup worker user@host}
+remote=${MANAGALLERY_BACKUP_TARGET:-${RENDERGALLERY_BACKUP_TARGET:-}}
+: "${remote:?Set MANAGALLERY_BACKUP_TARGET to your backup worker user@host}"
 mode=${1:-backup}
 if [[ "$mode" = status ]]; then
   /usr/bin/ssh "${ssh_options[@]}" "$remote" status | "$php_binary" "$base/backup-status.php"

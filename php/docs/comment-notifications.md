@@ -60,11 +60,11 @@ dependency updates must install the new locked vendor tree separately.
 After creating the mailbox with your email provider, run in an interactive SSH terminal:
 
 ```sh
-/usr/php85/usr/bin/php ~/rendergallery-php/configure-smtp.php
+php scripts/configure-smtp.php /private/gallery smtp.example.com 587 notifications@example.com
 ```
 
-The private helper uses the configured notification From address as its username
-on `smtp.stackmail.com:587` with STARTTLS. It hides password entry, verifies the
+Use your mail provider’s SMTP hostname, port and mailbox username. Port 587 uses
+STARTTLS; port 465 uses implicit TLS. The helper hides password entry, verifies the
 server certificate and tests authentication without sending a message. Only a
 successful login is saved in `config.local.php`, mode 0600, outside the public
 root. A private pre-change configuration is retained for rollback. Never enter
@@ -74,3 +74,26 @@ When `notification_smtp` is configured, delivery uses authenticated SMTP and nev
 falls back to the unauthenticated relay on failure. Diagnostics do not print the
 password or SMTP transcript. Private backups include the configuration, locked
 dependencies and vendor files; the recovery password remains stored separately.
+
+## Delivery and Discord channels
+
+On FastCGI hosts, posting an approved comment starts a small delivery batch after
+the response finishes. Keep the five-minute scheduled worker for retries and
+larger queues. Admin > Site health also has a **Send pending notifications now**
+button. Other PHP interfaces use the scheduled worker or this button.
+
+Comment posts include the artwork preview and use the existing private
+`discord_webhook` setting. They cannot ping Discord members.
+
+To announce new artwork, open **Admin > Settings > Discord artwork announcements**.
+For each gallery category, create a webhook in its Discord channel under
+**Edit Channel > Integrations > Webhooks**, then paste that URL into the matching
+category field. Leave a field empty to keep its destination, or select Disconnect
+to turn it off. Saved webhook URLs are never displayed in the page.
+
+Announcements run when a new upload is published or approved. Pending and hidden
+artwork is excluded; imported artwork is not reposted. Each artwork is announced
+once, with its title, artist, preview and a link. Categories without a destination
+do not post to another channel. Removing or hiding artwork before delivery cancels
+its queued announcement. Delivery errors use the same bounded retry queue as
+comment notifications.

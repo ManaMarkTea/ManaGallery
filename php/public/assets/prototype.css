@@ -1,4 +1,11 @@
 [hidden] { display: none !important; }
+.artwork-image-wrap { align-self:start; }
+.artwork-image-link { display:block; max-width:100%; cursor:zoom-in; }
+.inline-model { width:100%; min-width:0; }
+.inline-model .model-stage { height:min(65vh,620px); }
+.inline-model .model-toolbar { margin:12px 0 0; }
+.model-toolbar label { display:flex; align-items:center; gap:8px; }
+.model-toolbar select { min-width:120px; }
 #model-viewer { width:min(1000px,96vw); max-width:96vw; padding:18px; background:#202b36; color:#edf4fc; border:1px solid #72899e; border-radius:10px; }
 #model-viewer::backdrop { background:rgba(0,0,0,.82); }
 .model-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
@@ -124,3 +131,6 @@ body:has(#image-viewer[open]) { overflow: hidden; }
 .software-card-label[data-software="vue"] { background:#d6eddb; color:#245d35; }
 .software-card-label[data-software="terragen"] { background:#cce9e7; color:#205752; }
 .software-card-label[data-software="other"] { background:#e5e7eb; color:#394454; }
+
+.gallery-brand-icon{width:36px;height:36px;object-fit:contain;flex-shrink:0}
+.admin-logo .gallery-brand-icon{width:30px;height:30px}

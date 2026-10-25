@@ -21,8 +21,17 @@ $file = $app . '/config.local.php';
 $before = file_get_contents($file);
 $config = require $file;
 $from = $config['notification_from'] ?? 'notifications@gallery.example.com';
-$smtp = ['host' => 'smtp.stackmail.com', 'port' => 587, 'username' => $from];
-echo 'Configure authenticated mail for ' . $from . " using smtp.stackmail.com:587 (STARTTLS).\n";
+$existing = $config['notification_smtp'] ?? [];
+$smtp = [
+    'host' => $argv[2] ?? $existing['host'] ?? '',
+    'port' => (int)($argv[3] ?? $existing['port'] ?? 587),
+    'username' => $argv[4] ?? $existing['username'] ?? $from,
+];
+if (!preg_match('/^[A-Za-z0-9.-]+$/D', $smtp['host']) || !in_array($smtp['port'], [465, 587], true)
+    || !filter_var($smtp['username'], FILTER_VALIDATE_EMAIL)) {
+    throw new RuntimeException('Usage: configure-smtp.php PRIVATE_APP SMTP_HOST 587 MAILBOX_ADDRESS (or port 465)');
+}
+echo 'Configure authenticated mail for ' . $from . ' using ' . $smtp['host'] . ':' . $smtp['port'] . ".\n";
 $terminal = trim((string)shell_exec('stty -g 2>/dev/null'));
 if (!preg_match('/^[a-fA-F0-9:]+$/D', $terminal)) {
     fwrite(STDERR, "Cannot securely disable terminal echo. No password requested or configuration changed.\n");

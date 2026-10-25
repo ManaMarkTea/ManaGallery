@@ -44,6 +44,11 @@ $held = (int)query('SELECT COUNT(*) FROM comments WHERE deleted=0 AND moderation
 $notificationCounts = query('SELECT kind,state,COUNT(*) AS total FROM notification_queue GROUP BY kind,state ORDER BY kind,state')->fetchAll();
 $notificationRun = query("SELECT value FROM settings WHERE key='notifications_last_run'")->fetchColumn(); ?>
 <section class="prototype-panel"><h2>Comment notifications</h2><p>Email: <?= !empty(config()['notification_mail_enabled']) ? 'Enabled' : 'Disabled' ?> · Discord: <?= !empty(config()['discord_webhook']) ? 'Configured' : 'Not configured' ?></p>
+<form action="/admin/notifications/send" method="post">
+    <?= csrf_field() ?>
+    <button>Send pending notifications now</button>
+</form>
+<p class="help">Processes up to five queued messages. The scheduled worker handles the rest. FastCGI hosts also start a small batch after a new comment is posted.</p>
 <p>Last worker run: <?php render_time($notificationRun ? (int)$notificationRun : null); ?></p>
 <?php foreach ($notificationCounts as $notificationCount): ?><p><?= e(ucfirst($notificationCount['kind'])) ?> · <?= e($notificationCount['state']) ?>: <?= (int)$notificationCount['total'] ?></p><?php endforeach; ?>
 <?php foreach (query("SELECT id,kind,last_error FROM notification_queue WHERE last_error IS NOT NULL ORDER BY id DESC LIMIT 5")->fetchAll() as $deliveryError): ?><p class="help">Job <?= (int)$deliveryError['id'] ?> · <?= e($deliveryError['kind']) ?>: <?= e($deliveryError['last_error']) ?></p><?php endforeach; ?>

@@ -3,7 +3,7 @@
 Start with [the installation guide](../docs/getting-started.md). No migration or existing gallery is required.
 
 
-[Shared-hosting setup](docs/shared-hosting.md) · [Email notifications](docs/comment-notifications.md)
+[Shared-hosting setup](docs/shared-hosting.md) | [Email notifications](docs/comment-notifications.md)
 
 ## Run locally
 
@@ -26,13 +26,13 @@ The built-in server is for local development only. Stop it with Ctrl+C.
 
 - Gallery, artwork details and shared visual styling.
 - Software/category/search/sort filters. Dropdowns update immediately; search waits 350 ms and keeps focus. Native GET forms work without JavaScript.
-- 24/48/96 images per page, direct page entry, first/last and Â±1/5/10 page navigation.
+- 24/48/96 images per page, direct page entry, first/last and +/-1/5/10 page navigation.
 - Full-tab image overlay, Escape and close-button dismissal.
 - Accounts: registration, password sign-in/out and password changes. Argon2id when available, bcrypt otherwise; cookie sessions, session rotation, CSRF checks and bounded login/registration throttles.
 - JPEG/PNG/WebP upload decoding and WebP re-encoding, private originals and previews, 10 MiB / 16 megapixel / 12,000 pixel bounds. New uploads await approval; owners/admins can view pending images and edit details. Owners/admins can permanently delete uploaded artwork.
 - Admin review queue with quick per-member auto-upload toggles, approval, member access controls, local/UTC date display and activity log. Admins can edit archive metadata and hide artwork. Edits cannot override approval/moderation.
 - Default 1 GiB/member and 2 GiB/gallery upload limits, plus 2 GiB reserved disk space. Imported archive media is excluded from quotas. Quotas and registration/upload availability are editable under Admin > Settings.
-- Escaped output, CSP, private storage and database outside the document root, media MIME/path/visibility checks. Pending and hidden image URLs are protected too; image responses are not cached.
+- Escaped output, CSP, private storage and database outside the document root, media MIME/path/visibility checks. Published thumbnails use a private five-minute browser cache. Pending, hidden and full-size images are not cached. A thumbnail already viewed can remain cached for up to five minutes after being hidden; revalidation checks access again.
 - Unique views counted server-side once per account or anonymous browser, without view IP storage. Signing in merges anonymous visits instead of counting them twice; legacy hits remain separate and unverified.
 - Favorites with private account collections, verified owned-archive collection and artist gallery filtering. All collections paginate, and hidden artwork respects ownership/admin access.
 - Member-only private `.MAT`, `.3DS` and geometry-only `.GLB` downloads with file-size/SHA-256 validation and moderation checks.

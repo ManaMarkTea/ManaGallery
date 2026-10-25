@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+function notification_brand(): string
+{
+    $settings = function_exists('site_settings') ? site_settings() : [];
+    $name = $settings['siteName'] ?? (function_exists('config') ? (config()['notification_brand'] ?? 'ManaGallery') : 'ManaGallery');
+
+    return trim(str_replace(["\r", "\n"], ' ', $name));
+}
+
 function notification_mail(string $to, string $subject, string $body, ?string $unsubscribe = null): bool
 {
     $from = config()['notification_from'] ?? 'notifications@gallery.example.com';
@@ -31,8 +39,10 @@ function notification_mail(string $to, string $subject, string $body, ?string $u
             $mail->smtpClose();
         }
     }
+    $brand = notification_brand();
+    $displayName = preg_match('/^[A-Za-z0-9 ._-]+$/D', $brand) ? $brand : '"' . addcslashes($brand, '\\"') . '"';
     $headers = [
-        'From' => 'ManaGallery <' . $from . '>',
+        'From' => $displayName . ' <' . $from . '>',
         'Sender' => $from,
         'MIME-Version' => '1.0',
         'Content-Type' => 'text/plain; charset=UTF-8',
@@ -72,27 +82,56 @@ function notification_smtp_client(array $smtp, string $from): \PHPMailer\PHPMail
     $mail->SMTPOptions = ['ssl' => ['verify_peer' => true, 'verify_peer_name' => true, 'allow_self_signed' => false]];
     $mail->CharSet = 'UTF-8';
     $mail->Encoding = 'quoted-printable';
-    $mail->setFrom($from, 'ManaGallery');
+    $mail->setFrom($from, notification_brand());
     $mail->Sender = $from;
 
     return $mail;
 }
-function notification_discord(array $comment, array $art): bool
+function notification_discord_payload(array $comment, array $art): array
 {
-    $url = config()['discord_webhook'] ?? '';
-    if (!preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url)) {
-        throw new RuntimeException('Discord webhook is not configured');
-    }
-    $payload = [
+    return [
         'allowed_mentions' => ['parse' => []],
         'embeds' => [
             [
                 'title' => mb_substr($art['title'], 0, 256),
                 'url' => notification_origin() . '/art/' . $art['id'] . '#comments',
                 'description' => mb_substr($comment['username'] . ': ' . $comment['body'], 0, 2000),
+                'image' => ['url' => notification_origin() . '/media/' . (int)$art['id'] . '/preview'],
             ],
         ],
     ];
+}
+
+function notification_discord(array $comment, array $art): bool
+{
+    $url = config()['discord_webhook'] ?? '';
+
+    return notification_discord_send($url, notification_discord_payload($comment, $art));
+}
+
+function notification_discord_artwork_payload(array $art): array
+{
+    return [
+        'allowed_mentions' => ['parse' => []],
+        'embeds' => [[
+            'title' => mb_substr($art['title'], 0, 256),
+            'url' => notification_origin() . '/art/' . (int)$art['id'],
+            'description' => 'New artwork by ' . mb_substr($art['author'] ?? 'Community artist', 0, 100),
+            'image' => ['url' => notification_origin() . '/media/' . (int)$art['id'] . '/preview'],
+        ]],
+    ];
+}
+
+function notification_discord_artwork(array $art): bool
+{
+    return notification_discord_send(notification_upload_webhook($art), notification_discord_artwork_payload($art));
+}
+
+function notification_discord_send(string $url, array $payload): bool
+{
+    if (!preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url)) {
+        throw new RuntimeException('Discord webhook is not configured');
+    }
     $curl = curl_init($url . '?wait=true');
     curl_setopt_array($curl, [
         CURLOPT_POST => true,
@@ -113,15 +152,21 @@ function notification_discord(array $comment, array $art): bool
     }
 }
 // Injectable transports keep tests isolated: no real mail or Discord posts.
-function notification_deliver(array $all, ?callable $mailer = null, ?callable $discord = null, int $limit = 20): array
+function notification_deliver(array $all, ?callable $mailer = null, ?callable $discord = null, int $limit = 20, ?callable $announcer = null): array
 {
     notification_schema();
     $mailer ??= notification_mail(...);
     $discord ??= notification_discord(...);
+    $announcer ??= notification_discord_artwork(...);
     query("UPDATE notification_queue SET state='failed',last_error='Worker interrupted; review before retrying to avoid duplicate delivery',payload=CASE WHEN kind='confirmation' THEN '' ELSE payload END WHERE state='sending' AND next_attempt<?", [time() - 900]);
     $counts = ['sent' => 0, 'cancelled' => 0, 'deferred' => 0, 'failed' => 0];
+    // Web requests do a short batch; the CLI worker drains larger queues.
+    $deadline = PHP_SAPI === 'cli' ? INF : microtime(true) + 8;
     $rows = query("SELECT * FROM notification_queue WHERE state='pending' AND next_attempt<=? ORDER BY id LIMIT ?", [time(), $limit])->fetchAll();
     foreach ($rows as $job) {
+        if (microtime(true) >= $deadline) {
+            break;
+        }
         if (!empty(config()['notifications_paused'])) {
             break;
         }
@@ -131,6 +176,10 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
         if ($job['kind'] === 'confirmation') {
             $contact = query('SELECT * FROM notification_contacts WHERE identity=?', [$job['identity']])->fetch();
             $valid = $contact && !$contact['confirmed'] && notification_available($job['identity']) && $contact['email'] === $job['email'] && $contact['confirmation_expires'] >= time() && hash_equals($contact['confirmation_hash'] ?? '', hash('sha256', $job['payload']));
+        } elseif ($job['kind'] === 'discord-artwork') {
+            $payload = json_decode($job['payload'], true);
+            $art = is_array($payload) ? find_artwork($all, (int)($payload['id'] ?? 0)) : null;
+            $valid = $art && isset($art['ownerId']) && ($art['filename'] ?? '') === ($payload['filename'] ?? null) && empty($art['hidden']) && empty($art['pending']);
         } else {
             $comment = query('SELECT * FROM comments WHERE id=?', [$job['comment_id']])->fetch();
             $art = $comment ? find_artwork($all, (int)$comment['artwork_id']) : null;
@@ -154,7 +203,12 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
             $counts['cancelled']++;
             continue;
         }
-        if ($job['kind'] === 'discord' ? empty(config()['discord_webhook']) : empty(config()['notification_mail_enabled'])) {
+        $enabled = match ($job['kind']) {
+            'discord' => !empty(config()['discord_webhook']),
+            'discord-artwork' => notification_upload_webhook($art) !== '',
+            default => !empty(config()['notification_mail_enabled']),
+        };
+        if (!$enabled) {
             $counts['deferred']++;
             continue;
         }
@@ -163,15 +217,17 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
             continue;
         }
         try {
-            if ($job['kind'] === 'discord') {
+            if ($job['kind'] === 'discord-artwork') {
+                $ok = $announcer($art);
+            } elseif ($job['kind'] === 'discord') {
                 $ok = $discord($comment, $art);
             } elseif ($job['kind'] === 'confirmation') {
                 $url = notification_origin() . '/notifications/confirm?account=' . rawurlencode($job['identity']) . '&token=' . $job['payload'];
-                $ok = $mailer($job['email'], 'Confirm your ManaGallery email address', "Confirm this email address for comment notifications:\n\n" . $url . "\n\nThis link expires in 24 hours. If you did not request it, ignore this email.\n", null);
+                $ok = $mailer($job['email'], 'Confirm your ' . notification_brand() . ' email address', "Confirm this email address for comment notifications:\n\n" . $url . "\n\nThis link expires in 24 hours. If you did not request it, ignore this email.\n", null);
             } else {
                 $unsubscribe = notification_unsubscribe($job['identity']);
-                $body = "There is a new comment on artwork you follow on ManaGallery.\n\nRead the comment:\n" . notification_origin() . '/art/' . $art['id'] . "#comments\n\nManage preferences: " . notification_origin() . "/account\nUnsubscribe from comment emails: " . $unsubscribe . "\n";
-                $ok = $mailer($job['email'], 'New comment on ManaGallery', $body, $unsubscribe);
+                $body = "There is a new comment on artwork you follow on " . notification_brand() . ".\n\nRead the comment:\n" . notification_origin() . '/art/' . $art['id'] . "#comments\n\nManage preferences: " . notification_origin() . "/account\nUnsubscribe from comment emails: " . $unsubscribe . "\n";
+                $ok = $mailer($job['email'], 'New comment on ' . notification_brand(), $body, $unsubscribe);
             }
             if (!$ok) {
                 throw new RuntimeException('Transport did not accept notification');

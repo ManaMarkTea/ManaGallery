@@ -14,7 +14,7 @@ function verify_imported_password(string $password, string $stored, string $kind
         if (!function_exists('sodium_crypto_pwhash_scryptsalsa208sha256')) {
             throw new DomainException('Existing-account sign-in requires the PHP Sodium extension. Please contact the administrator.');
         }
-        // Next.js uses Node scrypt defaults: N=16384, r=8, p=1, dkLen=64.
+        // The imported scrypt format uses: N=16384, r=8, p=1, dkLen=64.
         // The salt is the 32-character hex STRING, not its decoded bytes.
         // Sodium selects the same parameters with these fixed resource bounds.
         $actual = sodium_crypto_pwhash_scryptsalsa208sha256(64, $password, $parts[1], 524288, 16777216);
@@ -54,7 +54,7 @@ function imported_login(string $name, string $password): ?array
     if ($import['disabled'] || !$import['password'] || !verify_imported_password($password, $import['password'], $import['password_kind'])) {
         return null;
     }
-    // Argon2 supports passwords from Next.js that exceed bcrypt's 72-byte cap.
+    // Argon2 supports imported passwords that exceed bcrypt's 72-byte cap.
     // Fail explicitly rather than silently truncating those passwords.
     if (password_algorithm() === PASSWORD_BCRYPT && (strlen($password) > 72 || str_contains($password, "\0"))) {
         throw new DomainException('Migrating this password requires PHP Argon2 support. Contact the administrator.');

@@ -59,7 +59,9 @@ function current_user(): ?array
 
         return null;
     }
-    query('UPDATE users SET last_seen=? WHERE id=? AND (last_seen IS NULL OR last_seen < ?)', [time(), $user['id'], time() - 60]);
+    if ((int)($user['last_seen'] ?? 0) < time() - 60) {
+        query('UPDATE users SET last_seen=? WHERE id=? AND (last_seen IS NULL OR last_seen < ?)', [time(), $user['id'], time() - 60]);
+    }
 
     return $user;
 }

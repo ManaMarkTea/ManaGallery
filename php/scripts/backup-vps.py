@@ -4,14 +4,15 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 
 HOME=Path.home()
-BASE=HOME/'.local/share/bryce5-backup'
-CONFIG=HOME/'.config/bryce5-backup'
-LIB=HOME/'.local/lib/bryce5-backup'
+BASE=Path(os.environ.get('MANAGALLERY_BACKUP_BASE',HOME/'.local/share/managallery-backup'))
+CONFIG=Path(os.environ.get('MANAGALLERY_BACKUP_CONFIG',HOME/'.config/managallery-backup'))
+LIB=Path(os.environ.get('MANAGALLERY_BACKUP_LIB',HOME/'.local/lib/managallery-backup'))
 STAGE=BASE/'stage'
 REPOSITORY=BASE/'repository'
-PASSWORD=HOME/'.config/rendergallery-backup/recovery-password'
-CLOUD='rclone:bryce5-drive:'
-TAG='bryce5-php'
+PASSWORD=Path(os.environ.get('MANAGALLERY_BACKUP_PASSWORD_FILE',CONFIG/'recovery-password'))
+REMOTE=os.environ.get('MANAGALLERY_DRIVE_REMOTE','gallery-drive')
+CLOUD='rclone:'+REMOTE+':'
+TAG='managallery'
 STATE=BASE/'status.json'
 LOGS={}
 
@@ -93,16 +94,16 @@ def verify(path,kind):run(['/usr/bin/python3',LIB/'verify-backup.py',path],kind)
 
 def check_stage():
     if STAGE.is_symlink() or not STAGE.resolve().is_relative_to(BASE.resolve()):raise RuntimeError('Unsafe receive stage')
-    if STAGE.exists() and (STAGE/'.bryce-backup-stage').read_text()!='Bryce5 backup stage v1\n':raise RuntimeError('Unknown receive directory')
+    if STAGE.exists() and (STAGE/'.managallery-backup-stage').read_text()!='ManaGallery backup stage v1\n':raise RuntimeError('Unknown receive directory')
     STAGE.mkdir(mode=0o700,exist_ok=True)
-    (STAGE/'.bryce-backup-stage').write_text('Bryce5 backup stage v1\n')
+    (STAGE/'.managallery-backup-stage').write_text('ManaGallery backup stage v1\n')
 
 def cloud_ready():
     file=CONFIG/'rclone.conf'
     if not file.exists() or not (CONFIG/'drive-ready').exists():return False
     parser=configparser.ConfigParser(interpolation=None);parser.read(file)
-    if parser.get('bryce5-drive','scope',fallback='')!='drive.file':raise RuntimeError('Refusing broader Google Drive scope')
-    folder=parser.get('bryce5-drive','root_folder_id',fallback='')
+    if parser.get(REMOTE,'scope',fallback='')!='drive.file':raise RuntimeError('Refusing broader Google Drive scope')
+    folder=parser.get(REMOTE,'root_folder_id',fallback='')
     if not folder or not folder.replace('-','').replace('_','').isalnum():raise RuntimeError('Backup folder is not pinned')
     return True
 
@@ -162,7 +163,7 @@ def main():
             # Explicit first initialization only; never create a fallback repository.
             if not (REPOSITORY/'config').exists():raise RuntimeError('Take an encrypted VPS snapshot before initializing Google Drive')
             parser=configparser.ConfigParser(interpolation=None);parser.read(CONFIG/'rclone.conf')
-            if parser.get('bryce5-drive','scope',fallback='')!='drive.file' or not parser.get('bryce5-drive','root_folder_id',fallback=''):raise RuntimeError('Expected app-created-files scope and pinned backup folder')
+            if parser.get(REMOTE,'scope',fallback='')!='drive.file' or not parser.get(REMOTE,'root_folder_id',fallback=''):raise RuntimeError('Expected app-created-files scope and pinned backup folder')
             def connect():
                 probe=run(['/usr/bin/restic','-r',CLOUD,'snapshots','--json'],'cloud',allow_failure=True)
                 if probe:
