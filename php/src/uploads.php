@@ -6,6 +6,52 @@ const MEMBER_QUOTA = 1073741824;
 const GALLERY_QUOTA = 2147483648;
 const DISK_RESERVE = 2147483648;
 
+function media_timing_headers(int $requestStarted, float $sessionMs, float $lookupMs, int $fileStarted): void
+{
+    header(sprintf(
+        'Server-Timing: session;dur=%.2F, lookup;dur=%.2F, file;dur=%.2F, app;dur=%.2F',
+        $sessionMs,
+        $lookupMs,
+        (hrtime(true) - $fileStarted) / 1e6,
+        (hrtime(true) - $requestStarted) / 1e6
+    ));
+}
+
+function uploaded_artwork(array $p): array
+{
+    return [
+            'id' => UPLOAD_BASE + (int)$p['id'], 'ownerId' => (int)$p['user_id'], 'title' => $p['title'], 'description' => $p['description'],
+            'categoryId' => (int)$p['category_id'], 'author' => $p['username'], 'date' => $p['created'], 'software' => $p['software'],
+            'tags' => $p['tags'], 'pending' => !(bool)$p['approved'], 'hidden' => false, 'image' => 'upload', 'fullImage' => 'upload',
+            'filename' => $p['filename'], 'preview' => $p['preview'], 'views' => 0, 'rating' => 0];
+}
+
+// Image requests need one record and its visibility, not gallery-wide view counts.
+function media_artwork(int $id, ?array $user): ?array
+{
+    if ($id >= UPLOAD_BASE) {
+        $row = query('SELECT p.*,u.username FROM uploads p JOIN users u ON u.id=p.user_id WHERE p.id=?', [$id - UPLOAD_BASE])->fetch();
+        $item = $row ? uploaded_artwork($row) : null;
+    } else {
+        $item = find_artwork(catalogue(), $id);
+    }
+    if (!$item) {
+        return null;
+    }
+    $hidden = query('SELECT hidden FROM artwork_overrides WHERE artwork_id=?', [$id])->fetchColumn();
+    if ($hidden !== false) {
+        $item['hidden'] = (bool)$hidden;
+    }
+    if (!empty($item['hidden']) && !isset($item['ownerId']) && $user && $user['role'] !== 'admin') {
+        $owner = query('SELECT u.id FROM imported_artwork a JOIN imported_accounts i ON i.identity=a.identity JOIN users u ON u.id=i.local_user_id WHERE a.artwork_id=? AND u.disabled=0', [$id])->fetchColumn();
+        if ($owner !== false) {
+            $item['archiveOwnerId'] = (int)$owner;
+        }
+    }
+
+    return $item;
+}
+
 function all_artworks(array $archive): array
 {
     $owners = query('SELECT a.artwork_id,u.id FROM imported_artwork a JOIN imported_accounts i ON i.identity=a.identity JOIN users u ON u.id=i.local_user_id WHERE u.disabled=0')->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -17,11 +63,7 @@ function all_artworks(array $archive): array
     unset($original);
     $uploads = query('SELECT p.*,u.username FROM uploads p JOIN users u ON u.id=p.user_id')->fetchAll();
     foreach ($uploads as $p) {
-        $archive['items'][] = [
-            'id' => UPLOAD_BASE + (int)$p['id'], 'ownerId' => (int)$p['user_id'], 'title' => $p['title'], 'description' => $p['description'],
-            'categoryId' => (int)$p['category_id'], 'author' => $p['username'], 'date' => $p['created'], 'software' => $p['software'],
-            'tags' => $p['tags'], 'pending' => !(bool)$p['approved'], 'hidden' => false, 'image' => 'upload', 'fullImage' => 'upload',
-            'filename' => $p['filename'], 'preview' => $p['preview'], 'views' => 0, 'rating' => 0];
+        $archive['items'][] = uploaded_artwork($p);
     }
     $views = query('SELECT artwork_id,COUNT(*) FROM artwork_viewers WHERE claimed_by IS NULL GROUP BY artwork_id')->fetchAll(PDO::FETCH_KEY_PAIR);
     $edits = query('SELECT * FROM artwork_overrides')->fetchAll(PDO::FETCH_UNIQUE);

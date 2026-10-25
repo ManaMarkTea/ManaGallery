@@ -142,8 +142,16 @@ try{
   assert.equal((await guest.request.get(artwork)).status(),200);
   const publishedPreview=await guest.request.get(previewPath);
   assert.equal(publishedPreview.status(),200);
+  assert.match(publishedPreview.headers()['server-timing'],/session;dur=[0-9.]+, lookup;dur=[0-9.]+, file;dur=[0-9.]+, app;dur=[0-9.]+/);
   assert.equal(publishedPreview.headers()['cache-control'],'private, max-age=300, must-revalidate');
   const etag=publishedPreview.headers()['etag'];assert(etag);
+  const visibilityForm={id:artwork.split('/').pop(),csrf:await page.locator('input[name="csrf"]').first().inputValue()};
+  await page.request.post('/admin/visibility',{form:visibilityForm});
+  assert.equal((await guest.request.get(previewPath,{headers:{'If-None-Match':etag}})).status(),404,'Hidden previews must not return cached content or 304');
+  const ownerHiddenPreview=await member.request.get(previewPath);
+  assert.equal(ownerHiddenPreview.status(),200);
+  assert(ownerHiddenPreview.headers()['cache-control'].includes('no-store'));
+  await page.request.post('/admin/visibility',{form:visibilityForm});
   assert.equal((await guest.request.get(previewPath,{headers:{'If-None-Match':etag}})).status(),304);
   assert.equal((await guest.request.get(previewPath,{headers:{'If-None-Match':'"old-image"'}})).status(),200);
   const cachedPage=await guest.newPage();

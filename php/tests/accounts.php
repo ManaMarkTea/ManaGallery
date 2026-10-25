@@ -111,4 +111,23 @@ verify(login_destination('https://evil.invalid') === '/account', 'External login
 verify(login_destination('//evil.invalid') === '/account', 'Protocol-relative login redirect rejected');
 verify(login_destination('/art/5') === '/art/5', 'Local artwork login return accepted');
 verify(attachment_info(-1) === null && attachment_info(5, 'remote') === null, 'Invalid attachment selectors rejected');
-echo "Passed account, permissions, hashing, throttling, transaction and storage checks.\n";
+$mediaCatalogue = ['items' => [['id' => 88, 'title' => 'Fictional archive', 'image' => '/gallery/fixture.png', 'categoryId' => 1]], 'categories' => [['id' => 1, 'name' => 'Fictional category']]];
+$catalogueFile = $directory . '/media-catalogue.json';
+file_put_contents($catalogueFile, json_encode($mediaCatalogue));
+putenv('RENDERGALLERY_PHP_CATALOGUE=' . $catalogueFile);
+query('INSERT INTO users(id,username,username_key,password,created) VALUES (1001,?,?,?,1)', ['media-owner', 'media-owner', 'fictional']);
+query('INSERT INTO imported_accounts(identity,username,username_key,password_kind,role,disabled,auto_approve,created,local_user_id) VALUES (?,?,?,?,?,0,0,1,1001)', ['next-legacy:1001', 'archive-owner', 'archive-owner', 'bryce-md5', 'member']);
+query('INSERT INTO imported_artwork(artwork_id,identity) VALUES (88,?)', ['next-legacy:1001']);
+query('INSERT INTO artwork_overrides(artwork_id,title,description,category_id,software,hidden) VALUES (88,?,?,1,?,1)', ['Fictional archive', '', 'bryce']);
+query('INSERT INTO uploads(user_id,title,description,category_id,software,filename,preview,bytes,approved,created) VALUES (1001,?,?,1,?,?,?,?,0,?)', ['Fictional upload', '', 'bryce', str_repeat('a', 40) . '.webp', 'preview-' . str_repeat('a', 40) . '.webp', 1, '2026-01-01']);
+$uploadId = UPLOAD_BASE + (int)database()->lastInsertId();
+foreach ([null, ['id' => 1001, 'role' => 'member'], ['id' => 1002, 'role' => 'member'], ['id' => 1003, 'role' => 'admin']] as $actor) {
+    foreach ([88, $uploadId] as $id) {
+        $normal = find_artwork(all_artworks($mediaCatalogue), $id);
+        $fast = media_artwork($id, $actor);
+        verify(can_view($actor, $normal) === can_view($actor, $fast), 'Single-image lookup preserves archive-owner, upload-owner, admin and guest visibility');
+    }
+}
+verify(media_artwork(999999, null) === null, 'Missing archive media fails closed');
+verify(media_artwork(UPLOAD_BASE + 999999, null) === null, 'Missing upload media fails closed');
+echo "Passed account, permissions, hashing, throttling, transaction, single-image lookup and storage checks.\n";

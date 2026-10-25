@@ -50,3 +50,14 @@ Keep configuration separate from loops. Use named fields for records, one per
 line, rather than packing nested arrays into a `foreach`. Give complicated
 conditions descriptive variable names. The formatter handles spacing; these
 readability choices still need a human pass.
+## Image request timings
+
+Image URLs use a single-artwork lookup rather than loading the complete gallery
+and counting views. Sessions are read and closed immediately for image requests;
+the same visibility and file-path checks still apply.
+
+Successful image responses include a `Server-Timing` header. In browser DevTools,
+`session` covers session/authentication work, `lookup` covers finding the artwork,
+`file` covers file validation and cache checks, and `app` covers total PHP work
+before sending the response. These measurements exclude delays before PHP starts
+and the time spent transferring the image.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-function start_session(): void
+function start_session(bool $readOnly = false): void
 {
     $directory = private_directory() . '/sessions';
     if (!is_dir($directory) && !mkdir($directory, 0700) && !is_dir($directory)) {
@@ -15,13 +15,15 @@ function start_session(): void
     session_save_path($directory);
     session_name('rendergallery_php_session');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
-    if (!session_start()) {
+    if (!session_start($readOnly ? ['read_and_close' => true] : [])) {
         throw new RuntimeException('Could not start session');
     }
     if (isset($_SESSION['issued']) && (int)$_SESSION['issued'] < time() - 1209600) {
         $_SESSION = [];
     }
-    $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
+    if (!$readOnly) {
+        $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
+    }
 }
 function csrf_field(): string
 {

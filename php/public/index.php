@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+$requestStarted = hrtime(true);
 require dirname(__DIR__) . '/src/gallery.php';
 require dirname(__DIR__) . '/src/database.php';
 require dirname(__DIR__) . '/src/auth.php';
@@ -54,9 +55,50 @@ try {
     if (in_array($method, ['GET', 'HEAD'], true) && preg_match('~^/site-icon/([a-f0-9]{64})\.png$~D', $path, $matches)) {
         serve_gallery_icon($matches[1], $method);
     }
-    start_session();
+    $sessionStarted = hrtime(true);
+    $mediaRequest = (bool)preg_match('~^/media/[1-9][0-9]*/(?:full|preview)$~D', $path);
+    start_session($mediaRequest);
     $user = current_user();
     if (notification_public_action($path, $method)) {
+        exit;
+    }
+    if (preg_match('~^/media/([1-9][0-9]*)/(full|preview)$~D', $path, $matches)) {
+        $sessionMs = (hrtime(true) - $sessionStarted) / 1e6;
+        $lookupStarted = hrtime(true);
+        $item = media_artwork((int)$matches[1], $user);
+        $lookupMs = (hrtime(true) - $lookupStarted) / 1e6;
+        $fileStarted = hrtime(true);
+        if (!$item || !can_view($user, $item)) {
+            http_response_code(404);
+            exit('Image not found');
+        }
+        $file = isset($item['ownerId']) ? uploaded_media($item, $matches[2] === 'full') : media_path($item, $matches[2] === 'full', config()['media_root']);
+        $mime = $file ? (new finfo(FILEINFO_MIME_TYPE))->file($file) : null;
+        if (!$file || !in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
+            http_response_code(404);
+            exit('Image not found');
+        }
+        // Keep published thumbnails in this browser, never in a shared CDN cache.
+        // Access checks above still run whenever the browser revalidates a copy.
+        if ($matches[2] === 'preview' && empty($item['hidden']) && empty($item['pending'])) {
+            $etag = '"' . hash_file('sha256', $file) . '"';
+            header_remove('Pragma');
+            header_remove('Expires');
+            header('Cache-Control: private, max-age=300, must-revalidate');
+            header('Vary: Cookie');
+            header('ETag: ' . $etag);
+            if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
+                media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted);
+                http_response_code(304);
+                exit;
+            }
+        }
+        media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted);
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($file));
+        if ($method !== 'HEAD') {
+            readfile($file);
+        }
         exit;
     }
     $all = all_artworks(apply_categories(catalogue()));
@@ -88,40 +130,6 @@ try {
             redirect_to('/login?next=' . rawurlencode('/art/' . $item['id']));
         }
         serve_attachment($item, $user, $format, $method);
-    }
-    if (preg_match('~^/media/([1-9][0-9]*)/(full|preview)$~D', $path, $matches)) {
-        $item = find_artwork($all, (int)$matches[1]);
-        if (!$item || !can_view($user, $item)) {
-            http_response_code(404);
-            exit('Image not found');
-        }
-        $file = isset($item['ownerId']) ? uploaded_media($item, $matches[2] === 'full') : media_path($item, $matches[2] === 'full', config()['media_root']);
-        $mime = $file ? (new finfo(FILEINFO_MIME_TYPE))->file($file) : null;
-        if (!$file || !in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
-            http_response_code(404);
-            exit('Image not found');
-        }
-        session_write_close();
-        // Keep published thumbnails in this browser, never in a shared CDN cache.
-        // Access checks above still run whenever the browser revalidates a copy.
-        if ($matches[2] === 'preview' && empty($item['hidden']) && empty($item['pending'])) {
-            $etag = '"' . hash_file('sha256', $file) . '"';
-            header_remove('Pragma');
-            header_remove('Expires');
-            header('Cache-Control: private, max-age=300, must-revalidate');
-            header('Vary: Cookie');
-            header('ETag: ' . $etag);
-            if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
-                http_response_code(304);
-                exit;
-            }
-        }
-        header('Content-Type: ' . $mime);
-        header('Content-Length: ' . filesize($file));
-        if ($method !== 'HEAD') {
-            readfile($file);
-        }
-        exit;
     }
     if (preg_match('~^/art/([1-9][0-9]*)(/edit)?$~D', $path, $matches)) {
         $artwork = find_artwork($all, (int)$matches[1]);
