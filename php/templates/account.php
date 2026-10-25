@@ -23,6 +23,10 @@ $collection = match($tab) {
 ?>
 <main class="prototype-account"><p class="eyebrow">YOUR COMMUNITY SPACE</p><h1>Hello, <?= e($user['username']) ?></h1>
 <?php if ($notice): ?><p class="notice" role="status"><?= e($notice) ?></p><?php endif; ?>
+<?php $accountEmail = account_email($user);
+if ($accountEmail && !$accountEmail['verified']): ?>
+<section class="prototype-panel"><h2>Confirm your email</h2><p>A confirmation email is queued for <?= e($accountEmail['email']) ?>. Confirm it before posting, uploading or downloading. Check your spam folder too.</p><form class="prototype-form" method="post" action="/account/verify-email"><?= csrf_field() ?><label>Email address<input type="email" name="email" autocomplete="email" value="<?= e($accountEmail['email']) ?>" maxlength="254" required></label><label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label><button>Send confirmation email again</button></form></section>
+<?php endif; ?>
 <div class="account-toolbar"><a class="button" href="/upload">Upload artwork +</a><?php if ($user['role'] === 'admin'): ?><a class="button button-quiet" href="/admin">Administration →</a><?php endif; ?><span class="help">Uploads <?= $user['auto_approve'] ? 'automatically approved' : 'require admin approval' ?> · <?= number_format(upload_usage((int)$user['id']) / 1048576, 1) ?> / <?= number_format(site_settings()['memberQuotaMiB']) ?> MiB</span></div>
 <nav class="collection-tabs" aria-label="Your collections"><?php foreach (['uploads' => ['Your uploads', count($mine)], 'archive' => ['Owned archive', count($archive)], 'favorites' => ['Favorites', count($favorites)]] as $key => [$label,$count]): ?><a href="/account?tab=<?= $key ?>" <?= $tab === $key ? 'aria-current="page"' : '' ?>><?= $label ?> <span><?= number_format($count) ?></span></a><?php endforeach; ?></nav>
 <section class="prototype-panel"><h2><?= match($tab) {
@@ -41,4 +45,5 @@ $contact = query('SELECT * FROM notification_contacts WHERE identity=?', [notifi
 <label class="checkbox-field"><input type="checkbox" name="notify_owner" <?= !empty($contact['owner_enabled']) ? 'checked' : '' ?>> Email me when someone comments on my artwork</label>
 <label class="checkbox-field"><input type="checkbox" name="notify_thread" <?= !empty($contact['thread_enabled']) ? 'checked' : '' ?>> Email me about new comments on artwork I have commented on</label>
 <button>Save email preferences</button></form><p class="help">New or changed addresses require confirmation. Each comment email includes an unsubscribe link. Email confirmation does not enable password recovery.</p></section>
-<p class="help">No email recovery or passkeys yet. Record your password securely.</p></main>
+<?php require __DIR__ . '/passkeys.php'; ?>
+<p class="help">Keep your password somewhere safe. Email password recovery is not available.</p></main>

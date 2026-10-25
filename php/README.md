@@ -7,7 +7,7 @@ Start with [the installation guide](../docs/getting-started.md). No migration or
 
 ## Run locally
 
-PHP 8.3+ with JSON, fileinfo, mbstring, PDO SQLite, Sodium and GD with WebP support. The core gallery needs no Composer, database server, Node server or frontend build. Authenticated notification mail additionally uses PHPMailer: run `composer install --no-dev --no-plugins --no-scripts` and enable PHP OpenSSL. See [comment notifications](docs/comment-notifications.md) for private SMTP setup. The app creates its own private SQLite database. A fictional 302-artwork collection is built in, so a clean checkout works without real data.
+PHP 8.3+ with JSON, fileinfo, mbstring, PDO SQLite, Sodium and GD with WebP support. The core gallery needs no Composer, database server, Node server or frontend build. Passkeys and authenticated notification mail use Composer dependencies: run `composer install --no-dev --no-plugins --no-scripts` and enable PHP OpenSSL. See [comment notifications](docs/comment-notifications.md) for private SMTP setup. The app creates its own private SQLite database. A fictional 302-artwork collection is built in, so a clean checkout works without real data.
 
 On Windows, run `./scripts/setup-php.ps1` once to install a private portable PHP runtime, then start the local server:
 ```powershell
@@ -28,7 +28,7 @@ The built-in server is for local development only. Stop it with Ctrl+C.
 - Software/category/search/sort filters. Dropdowns update immediately; search waits 350 ms and keeps focus. Native GET forms work without JavaScript.
 - 24/48/96 images per page, direct page entry, first/last and +/-1/5/10 page navigation.
 - Full-tab image overlay, Escape and close-button dismissal.
-- Accounts: registration, password sign-in/out and password changes. Argon2id when available, bcrypt otherwise; cookie sessions, session rotation, CSRF checks and bounded login/registration throttles.
+- Accounts: registration, password and passkey sign-in, password changes and optional signup email confirmation. See [account security](docs/account-security.md). Argon2id when available, bcrypt otherwise; cookie sessions, session rotation, CSRF checks and bounded login/registration throttles.
 - JPEG/PNG/WebP upload decoding and WebP re-encoding, private originals and previews, 10 MiB / 16 megapixel / 12,000 pixel bounds. New uploads await approval; owners/admins can view pending images and edit details. Owners/admins can permanently delete uploaded artwork.
 - Admin review queue with quick per-member auto-upload toggles, approval, member access controls, local/UTC date display and activity log. Admins can edit archive metadata and hide artwork. Edits cannot override approval/moderation.
 - Default 1 GiB/member and 2 GiB/gallery upload limits, plus 2 GiB reserved disk space. Imported archive media is excluded from quotas. Quotas and registration/upload availability are editable under Admin > Settings.
@@ -40,8 +40,7 @@ The built-in server is for local development only. Stop it with Ctrl+C.
 
 ## Current limits
 
-Passkeys and self-service email verification/password recovery are not implemented
-in the PHP version. SMTP notifications and backup tools require separate setup.
+Email password recovery is not available. SMTP notifications and backup tools require separate setup.
 
 ## Try accounts and administration
 
@@ -60,7 +59,7 @@ The local portable PHP config and setup script include the required SQLite/GD ex
 
 ## Shared hosting layout
 
-Set the subdomain's document root to **this project's `public/` only**. Upload application `src/`, `templates/`, config and private `storage/` outside that document root. Do not upload `.tools/`, test fixtures, Git metadata or private runtime data. Apache-compatible hosts need mod_rewrite/AllowOverride for `public/.htaccess`; `router.php` is local-only. If the panel cannot select a nested document root, put the contents of `public/` in the web root and adjust the two private include paths explicitly—never expose the entire project.
+Set the subdomain's document root to **this project's `public/` only**. Upload application `src/`, `templates/`, config and private `storage/` outside that document root. Do not upload `.tools/`, test fixtures, Git metadata or private runtime data. Apache-compatible hosts need mod_rewrite/AllowOverride for `public/.htaccess`; `router.php` is local-only. If the panel cannot select a nested document root, put the contents of `public/` in the web root and adjust the two private include paths explicitlyâ€”never expose the entire project.
 
 A shared-hosting deployment uses a private app directory and a separate public launcher/assets directory. Host extensions, SQLite, public routing and HTTPS have been checked. See [deployment notes](docs/shared-hosting.md) before updating code. Configure registration and upload policy under Admin > Settings.
 

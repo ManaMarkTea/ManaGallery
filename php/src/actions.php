@@ -21,14 +21,31 @@ function handle_action(string $path, ?array $user, array $all): void
         if (query('SELECT 1 FROM users WHERE username_key=?', [strtolower($name)])->fetchColumn()) {
             throw new DomainException('That username is unavailable.');
         }
+        $verifyEmail = site_settings()['signupEmailVerification'];
+        $email = $verifyEmail ? account_valid_email(param($_POST, 'email')) : '';
+        if ($verifyEmail && empty(config()['notification_mail_enabled'])) {
+            throw new DomainException('Email delivery is unavailable. Please try again later.');
+        }
+        if ($verifyEmail) {
+            take_attempt('signup-email', strtolower($email), 3, 3600);
+        }
+        account_security_schema();
+        notification_schema();
         try {
-            query('INSERT INTO users(username,username_key,password,created) VALUES (?,?,?,?)', [$name, strtolower($name), $hash, time()]);
+            $id = with_write(function () use ($name, $hash, $verifyEmail, $email): int {
+                query('INSERT INTO users(username,username_key,password,created) VALUES (?,?,?,?)', [$name, strtolower($name), $hash, time()]);
+                $id = (int)database()->lastInsertId();
+                if ($verifyEmail) {
+                    account_verification_email($id, $email);
+                }
+
+                return $id;
+            });
         } catch (PDOException $error) {
             if ((string)$error->getCode() === '23000') {
                 throw new DomainException('That username is unavailable.');
             } throw $error;
         }
-        $id = (int)database()->lastInsertId();
         log_activity($id, 'Account created', (string)$id);
         sign_in(['id' => $id], false);
         redirect_to('/account');
@@ -63,6 +80,12 @@ function handle_action(string $path, ?array $user, array $all): void
         redirect_to(login_destination(param($_POST, 'next')));
     }
     $user = require_user($user);
+    if ($path === '/account/verify-email') {
+        account_resend_verification($user);
+    }
+    if (!in_array($path, ['/logout', '/account/password'], true)) {
+        account_require_verified($user);
+    }
     if ($path === '/account/notifications') {
         notification_preferences($user);
         redirect_to('/account');

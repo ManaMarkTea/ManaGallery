@@ -2,7 +2,7 @@
   "name": "managallery",
   "private": true,
   "scripts": {
-    "test": "node tests/browser.mjs",
+    "test": "node tests/browser.mjs && node tests/security-browser.mjs",
     "build:viewer": "node scripts/build-viewer.mjs",
     "check:viewer": "node scripts/build-viewer.mjs --check",
     "models:convert": "node scripts/convert-models.mjs",

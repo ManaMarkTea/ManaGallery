@@ -1,6 +1,9 @@
 <?php
 // Copy to config.local.php; all paths are private and outside public/.
 return [
+    // Canonical HTTPS address for passkeys; use the same hostname permanently.
+    // Local development on http://localhost works without this setting.
+    'passkey_origin' => '',
     // Use WAL only when the database is on local storage, never NFS.
     'sqlite_journal_mode' => 'DELETE',
     // Enable only on the production installation after mail transport is configured.

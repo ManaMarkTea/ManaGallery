@@ -3,7 +3,7 @@
 A PHP community art gallery with uploads, comments, favorites and an admin panel.
 Free to use and modify under the MIT license.
 
-**[Installation guide](docs/getting-started.md)** — local setup, shared hosting and Ubuntu servers.
+**[Installation guide](docs/getting-started.md)** â€” local setup, shared hosting and Ubuntu servers.
 
 ## Quick start with Docker
 
@@ -26,6 +26,7 @@ VS Code dev container. Prefer a normal PHP installation? Use the
 - [PHP features and development](php/README.md)
 - [Code guide for developers](docs/code-guide.md)
 - [Shared hosting and updates](php/docs/shared-hosting.md)
+- [Passkeys and signup email confirmation](php/docs/account-security.md)
 - [Email and Discord notifications](php/docs/comment-notifications.md)
 - [Direct Google Drive backups](php/docs/drive-backups.md)
 - [3D model previews](php/docs/models.md)

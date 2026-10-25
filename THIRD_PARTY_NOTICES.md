@@ -6,6 +6,9 @@ Dependencies retain their own licenses; the project license does not replace the
 - PHP authenticated mail uses PHPMailer, licensed under LGPL-2.1. Its Composer
   package includes its copyright and license files. Keep those notices when
   distributing dependencies. See https://github.com/PHPMailer/PHPMailer.
+- Passkeys use lbuchs/WebAuthn under the MIT license, including the upstream
+  notices for its binary buffer and CBOR helpers. See
+  https://github.com/lbuchs/WebAuthn.
 - Playwright and other test dependencies retain the licenses included in their
   npm packages. See each package's `LICENSE` and package metadata.
 - The model viewer and offline converter use Three.js under the MIT license.

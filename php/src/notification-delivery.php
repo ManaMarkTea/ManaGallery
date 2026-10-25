@@ -158,7 +158,7 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
     $mailer ??= notification_mail(...);
     $discord ??= notification_discord(...);
     $announcer ??= notification_discord_artwork(...);
-    query("UPDATE notification_queue SET state='failed',last_error='Worker interrupted; review before retrying to avoid duplicate delivery',payload=CASE WHEN kind='confirmation' THEN '' ELSE payload END WHERE state='sending' AND next_attempt<?", [time() - 900]);
+    query("UPDATE notification_queue SET state='failed',last_error='Worker interrupted; review before retrying to avoid duplicate delivery',payload=CASE WHEN kind IN ('confirmation','signup-confirmation') THEN '' ELSE payload END WHERE state='sending' AND next_attempt<?", [time() - 900]);
     $counts = ['sent' => 0, 'cancelled' => 0, 'deferred' => 0, 'failed' => 0];
     // Web requests do a short batch; the CLI worker drains larger queues.
     $deadline = PHP_SAPI === 'cli' ? INF : microtime(true) + 8;
@@ -173,7 +173,10 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
         $comment = null;
         $art = null;
         $contact = null;
-        if ($job['kind'] === 'confirmation') {
+        if ($job['kind'] === 'signup-confirmation') {
+            $contact = query('SELECT e.*,u.disabled FROM account_emails e JOIN users u ON u.id=e.user_id WHERE e.user_id=?', [(int)$job['identity']])->fetch();
+            $valid = $contact && !$contact['verified'] && !$contact['disabled'] && $contact['email'] === $job['email'] && $contact['expires'] >= time() && hash_equals($contact['token_hash'] ?? '', hash('sha256', $job['payload']));
+        } elseif ($job['kind'] === 'confirmation') {
             $contact = query('SELECT * FROM notification_contacts WHERE identity=?', [$job['identity']])->fetch();
             $valid = $contact && !$contact['confirmed'] && notification_available($job['identity']) && $contact['email'] === $job['email'] && $contact['confirmation_expires'] >= time() && hash_equals($contact['confirmation_hash'] ?? '', hash('sha256', $job['payload']));
         } elseif ($job['kind'] === 'discord-artwork') {
@@ -221,6 +224,9 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
                 $ok = $announcer($art);
             } elseif ($job['kind'] === 'discord') {
                 $ok = $discord($comment, $art);
+            } elseif ($job['kind'] === 'signup-confirmation') {
+                $url = notification_origin() . '/verify-email?account=' . rawurlencode($job['identity']) . '&token=' . $job['payload'];
+                $ok = $mailer($job['email'], 'Confirm your ' . notification_brand() . ' account', "Confirm your email address to finish setting up your gallery account:\n\n" . $url . "\n\nThis link expires in 24 hours. If you did not create an account, ignore this email.\n", null);
             } elseif ($job['kind'] === 'confirmation') {
                 $url = notification_origin() . '/notifications/confirm?account=' . rawurlencode($job['identity']) . '&token=' . $job['payload'];
                 $ok = $mailer($job['email'], 'Confirm your ' . notification_brand() . ' email address', "Confirm this email address for comment notifications:\n\n" . $url . "\n\nThis link expires in 24 hours. If you did not request it, ignore this email.\n", null);

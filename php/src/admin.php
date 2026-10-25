@@ -43,6 +43,7 @@ function site_settings(): array
         'siteName' => $values['siteName'] ?? 'ManaGallery',
         'iconHash' => preg_match('/^[a-f0-9]{64}$/D', $values['iconHash'] ?? '') ? $values['iconHash'] : '',
         'description' => $values['description'] ?? 'A community art gallery.',
+        'signupEmailVerification' => ($values['signupEmailVerification'] ?? 'false') === 'true',
         'registrationOpen' => ($values['registrationOpen'] ?? 'true') === 'true',
         'uploadsOpen' => ($values['uploadsOpen'] ?? 'true') === 'true',
         'memberQuotaMiB' => (int)($values['memberQuotaMiB'] ?? 1024),
@@ -222,6 +223,10 @@ function admin_action(string $path, array $user, array $all): bool
         }
         $values = ['siteName' => $name, 'description' => $description, 'registrationOpen' => isset($_POST['registrationOpen']) ? 'true' : 'false', 'uploadsOpen' => isset($_POST['uploadsOpen']) ? 'true' : 'false'];
         $values['discordInvite'] = $discordInvite;
+        if (isset($_POST['signupEmailVerification']) && empty(config()['notification_mail_enabled'])) {
+            throw new DomainException('Configure email delivery before requiring signup confirmation.');
+        }
+        $values['signupEmailVerification'] = isset($_POST['signupEmailVerification']) ? 'true' : 'false';
         foreach (['memberQuotaMiB', 'galleryQuotaMiB'] as $key) {
             $value = filter_var(param($_POST, $key), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1048576]]);
             if ($value === false) {

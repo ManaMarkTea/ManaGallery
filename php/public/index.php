@@ -21,6 +21,8 @@ if (!$mediaRequest) {
     require dirname(__DIR__) . '/src/analytics.php';
     require dirname(__DIR__) . '/src/backups.php';
     require dirname(__DIR__) . '/src/notifications.php';
+    require dirname(__DIR__) . '/src/account-security.php';
+    require dirname(__DIR__) . '/src/passkeys.php';
 }
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -37,6 +39,7 @@ $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notification
 $postRoutes[] = '/admin/notifications/send';
 $postRoutes[] = '/admin/icon';
 $postRoutes[] = '/admin/discord';
+$postRoutes = array_merge($postRoutes, ['/verify-email', '/account/verify-email', '/passkeys/register/options', '/passkeys/register/finish', '/passkeys/login/options', '/passkeys/login/finish', '/passkeys/delete']);
 if (!in_array($method, ['GET', 'HEAD', 'POST'], true) || ($method === 'POST' && !in_array($path, $postRoutes, true) && !preg_match('~^/art/[1-9][0-9]*/(?:edit|delete)$~D', $path))) {
     header('Allow: GET, HEAD');
     http_response_code(405);
@@ -66,7 +69,7 @@ try {
     $sessionStarted = hrtime(true);
     start_session($mediaRequest);
     $user = current_user();
-    if (!$mediaRequest && notification_public_action($path, $method)) {
+    if (!$mediaRequest && (passkey_action($path, $method, $user) || account_verification_page($path, $method) || notification_public_action($path, $method))) {
         exit;
     }
     if (preg_match('~^/media/([1-9][0-9]*)/(full|preview)$~D', $path, $matches)) {
@@ -136,6 +139,10 @@ try {
         if (!$user) {
             redirect_to('/login?next=' . rawurlencode('/art/' . $item['id']));
         }
+        if (account_needs_verification($user)) {
+            $_SESSION['notice'] = 'Confirm your email before downloading.';
+            redirect_to('/account');
+        }
         serve_attachment($item, $user, $format, $method);
     }
     if (preg_match('~^/art/([1-9][0-9]*)(/edit)?$~D', $path, $matches)) {
@@ -144,8 +151,12 @@ try {
             $artwork = null;
             $notFound = true;
         }
-    } elseif (in_array($path, ['/account', '/account/password', '/account/notifications', '/upload'], true)) {
+    } elseif (in_array($path, ['/account', '/account/password', '/account/notifications', '/account/verify-email', '/upload'], true)) {
         require_user($user);
+        if ($path === '/upload' && account_needs_verification($user)) {
+            $_SESSION['notice'] = 'Confirm your email before uploading.';
+            redirect_to('/account');
+        }
     } elseif (in_array($path, $adminPages, true) || ($method === 'POST' && str_starts_with($path, '/admin/') && in_array($path, $postRoutes, true))) {
         require_admin($user);
     } elseif (!in_array($path, ['/', '/about', '/privacy', '/login', '/register'], true)) {

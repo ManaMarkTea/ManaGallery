@@ -1,6 +1,7 @@
 {
   "require": {
     "php": ">=8.3",
+    "lbuchs/webauthn": "^2",
     "phpmailer/phpmailer": "^7.1"
   },
   "config": {
