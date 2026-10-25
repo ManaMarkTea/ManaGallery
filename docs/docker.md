@@ -83,3 +83,9 @@ php tests/accounts.php
 
 For browser tests, install Chromium once with
 `npx playwright install --with-deps chromium`, then run `npm test`.
+
+## Automated checks
+
+GitHub runs the Docker build and dev-container checks weekly on Mondays at
+10:00 UTC. To run them sooner, open Actions > Gallery checks > Run workflow.
+PHP and source checks still run on pushes and pull requests.

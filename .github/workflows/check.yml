@@ -1,7 +1,13 @@
 name: Gallery checks
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
 jobs:
   docker:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       COMPOSE_PROJECT_NAME: managallery-ci
@@ -22,6 +28,7 @@ jobs:
       - if: always()
         run: docker compose down --volumes
   source:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +36,7 @@ jobs:
           fetch-depth: 0
       - run: python3 scripts/check-source.py
   php:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     defaults:
       run:
