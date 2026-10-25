@@ -104,7 +104,7 @@ function notification_discord_payload(array $comment, array $art): array
 
 function notification_discord(array $comment, array $art): bool
 {
-    $url = config()['discord_webhook'] ?? '';
+    $url = notification_comment_webhook();
 
     return notification_discord_send($url, notification_discord_payload($comment, $art));
 }
@@ -204,7 +204,7 @@ function notification_deliver(array $all, ?callable $mailer = null, ?callable $d
             continue;
         }
         $enabled = match ($job['kind']) {
-            'discord' => !empty(config()['discord_webhook']),
+            'discord' => notification_comment_webhook() !== '',
             'discord-artwork' => notification_upload_webhook($art) !== '',
             default => !empty(config()['notification_mail_enabled']),
         };

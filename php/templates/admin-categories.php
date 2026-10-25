@@ -1,2 +1,33 @@
-<section class="prototype-panel"><h2>Add a category</h2><form class="prototype-form" action="/admin/category" method="post"><?= csrf_field() ?><label>Name<input name="name" maxlength="100" required></label><label>Description<textarea name="description" aria-label="Description" maxlength="2000" rows="2"></textarea></label><label>Sort order<input name="sort_order" type="number" value="0" min="-100000" max="100000"></label><button>Create category</button></form></section>
-<?php foreach ($all['categories'] as $c): ?><details class="prototype-panel"><summary><strong><?= e($c['name']) ?></strong> · <?= count(array_filter($all['items'], fn ($i) => (int)$i['categoryId'] === (int)$c['id'])) ?> artworks</summary><form class="prototype-form" action="/admin/category" method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$c['id'] ?>"><label>Name<input name="name" value="<?= e($c['name']) ?>" maxlength="100" required></label><label>Description<textarea name="description" aria-label="Description" maxlength="2000"><?= e($c['description'] ?? '') ?></textarea></label><label>Sort order<input name="sort_order" type="number" value="<?= (int)$c['sort_order'] ?>" min="-100000" max="100000"></label><button>Save category</button></form><form action="/admin/category" method="post" data-confirm="Delete this empty category?"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$c['id'] ?>"><input type="hidden" name="action" value="delete"><button class="quiet-button">Delete empty category</button></form></details><?php endforeach; ?>
+<section class="prototype-panel">
+    <h2>Add a category</h2>
+    <form class="prototype-form" action="/admin/category" method="post" autocomplete="off">
+        <?= csrf_field() ?>
+        <label>Name<input name="name" maxlength="100" required></label>
+        <label>Description<textarea name="description" maxlength="2000" rows="2"></textarea></label>
+        <label>Sort order<input name="sort_order" type="number" value="0" min="-100000" max="100000"></label>
+        <?php $discordCategoryId = 0;
+        require __DIR__ . '/category-discord.php'; ?>
+        <button>Create category</button>
+    </form>
+</section>
+<?php foreach ($all['categories'] as $c): ?>
+    <details class="prototype-panel">
+        <summary><strong><?= e($c['name']) ?></strong> &middot; <?= count(array_filter($all['items'], fn ($i) => (int)$i['categoryId'] === (int)$c['id'])) ?> artworks</summary>
+        <form class="prototype-form" action="/admin/category" method="post" autocomplete="off">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+            <label>Name<input name="name" value="<?= e($c['name']) ?>" maxlength="100" required></label>
+            <label>Description<textarea name="description" maxlength="2000"><?= e($c['description'] ?? '') ?></textarea></label>
+            <label>Sort order<input name="sort_order" type="number" value="<?= (int)$c['sort_order'] ?>" min="-100000" max="100000"></label>
+            <?php $discordCategoryId = (int)$c['id'];
+    require __DIR__ . '/category-discord.php'; ?>
+            <button>Save category</button>
+        </form>
+        <form action="/admin/category" method="post" data-confirm="Delete this empty category?">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+            <input type="hidden" name="action" value="delete">
+            <button class="quiet-button">Delete empty category</button>
+        </form>
+    </details>
+<?php endforeach; ?>

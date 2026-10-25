@@ -153,18 +153,13 @@ function admin_action(string $path, array $user, array $all): bool
     }
     require_admin($user);
     if ($path === '/admin/discord') {
-        $values = [];
-        $submitted = is_array($_POST['webhook'] ?? null) ? $_POST['webhook'] : [];
-        $clear = is_array($_POST['clearWebhook'] ?? null) ? $_POST['clearWebhook'] : [];
-        foreach ($all['categories'] as $category) {
-            $id = (int)$category['id'];
-            $url = is_string($submitted[$id] ?? null) ? trim($submitted[$id]) : '';
-            if ($url !== '' && !preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url)) {
-                throw new DomainException('Enter a Discord webhook URL, or leave it empty to keep the current destination.');
-            }
-            if ($url !== '' || in_array((string)$id, $clear, true)) {
-                $values['discord_upload:' . $id] = $url;
-            }
+        $url = param($_POST, 'commentWebhook');
+        if (!valid_discord_webhook($url)) {
+            throw new DomainException('Enter a Discord webhook URL, or leave it empty to keep the current destination.');
+        }
+        $values = ['discordArtworkFallback' => isset($_POST['artworkFallback']) ? 'true' : 'false'];
+        if ($url !== '' || isset($_POST['clearCommentWebhook'])) {
+            $values['discord_comment_webhook'] = $url;
         }
         with_write(function () use ($values, $user): void {
             foreach ($values as $key => $value) {
@@ -272,6 +267,13 @@ function admin_action(string $path, array $user, array $all): bool
                     $actualId = max([1000, ...array_map(fn ($c) => (int)$c['id'], $all['categories']), (int)query('SELECT COALESCE(MAX(id),0) FROM category_overrides')->fetchColumn()]) + 1;
                 } elseif (!in_array($actualId, array_map(fn ($c) => (int)$c['id'], $all['categories']), true)) {
                     throw new DomainException('Category not found.');
+                }
+                $webhook = param($_POST, 'discordWebhook');
+                if (!valid_discord_webhook($webhook)) {
+                    throw new DomainException('Enter a Discord webhook URL, or leave it empty to keep the current destination.');
+                }
+                if ($webhook !== '' || isset($_POST['clearDiscordWebhook'])) {
+                    query('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ['discord_upload:' . $actualId, $webhook]);
                 }
                 query('INSERT INTO category_overrides(id,name,description,sort_order,deleted) VALUES (?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,sort_order=excluded.sort_order,deleted=0', [$actualId, $name, $description, $order]);
             }

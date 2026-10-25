@@ -10,12 +10,35 @@ function notification_schema(): void
     query("CREATE TABLE IF NOT EXISTS notification_queue(id INTEGER PRIMARY KEY,kind TEXT NOT NULL,comment_id INTEGER,identity TEXT NOT NULL,email TEXT NOT NULL DEFAULT '',payload TEXT NOT NULL DEFAULT '',state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_attempt INTEGER NOT NULL,created INTEGER NOT NULL,last_error TEXT,sent INTEGER,UNIQUE(kind,comment_id,identity))");
 }
 
-function notification_upload_webhook(array $art): string
+function valid_discord_webhook(string $url): bool
 {
-    $category = (int)($art['categoryId'] ?? 0);
+    return $url === '' || (bool)preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url);
+}
+
+function notification_comment_webhook(): string
+{
+    $saved = query("SELECT value FROM settings WHERE key='discord_comment_webhook'")->fetchColumn();
+
+    return $saved !== false ? $saved : (config()['discord_webhook'] ?? '');
+}
+
+function notification_category_webhook(int $category): string
+{
     $saved = query('SELECT value FROM settings WHERE key=?', ['discord_upload:' . $category])->fetchColumn();
 
     return $saved !== false ? $saved : (config()['discord_upload_webhooks'][$category] ?? '');
+}
+
+function notification_artwork_fallback(): bool
+{
+    return query("SELECT value FROM settings WHERE key='discordArtworkFallback'")->fetchColumn() === 'true';
+}
+
+function notification_upload_webhook(array $art): string
+{
+    $url = notification_category_webhook((int)($art['categoryId'] ?? 0));
+
+    return $url !== '' ? $url : (notification_artwork_fallback() ? notification_comment_webhook() : '');
 }
 
 function notification_enqueue_artwork(array $art): void
@@ -140,7 +163,7 @@ function notification_enqueue(int $id, array $all): void
         $emails[$email] = true;
         query('INSERT OR IGNORE INTO notification_queue(kind,comment_id,identity,email,payload,next_attempt,created) VALUES (?,?,?,?,?,?,?)', ['comment', $id, $identity, $contact['email'], $preference, time(), time()]);
     }
-    if (!empty(config()['discord_webhook'])) {
+    if (notification_comment_webhook() !== '') {
         query('INSERT OR IGNORE INTO notification_queue(kind,comment_id,identity,next_attempt,created) VALUES (?,?,?,?,?)', ['discord', $id, 'discord', time(), time()]);
     }
     notification_schedule_delivery($all);

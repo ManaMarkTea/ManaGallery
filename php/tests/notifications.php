@@ -124,4 +124,13 @@ notification_deliver(['items' => [$replacement]], $mailer, $discord, 20, $announ
 check(count($announcements) === 2 && $announcements[1]['filename'] === 'fictional-replacement.webp', 'Reused upload IDs cancel the old notification and allow a new publication');
 $embed = notification_discord_artwork_payload($art);
 check($embed['allowed_mentions']['parse'] === [] && str_contains($embed['embeds'][0]['image']['url'], '/preview'), 'Announcements have previews and cannot ping members');
+query("INSERT INTO settings(key,value) VALUES ('discordArtworkFallback','true')");
+check(notification_upload_webhook($other) === 'fixture-webhook-configured', 'Explicit fallback uses the comment destination');
+check(notification_upload_webhook($art) === 'fixture-category-two', 'Category destination takes precedence over fallback');
+notification_enqueue_artwork($other);
+notification_deliver(['items' => [$other]], $mailer, $discord, 20, $announcer);
+check(count($announcements) === 3, 'Enabled fallback queues and delivers unmapped artwork');
+query("INSERT INTO settings(key,value) VALUES ('discord_comment_webhook','')");
+check(notification_comment_webhook() === '' && notification_upload_webhook($other) === '', 'Disconnect overrides private config and disables fallback without a comment destination');
+check(valid_discord_webhook('') && !valid_discord_webhook('https://example.invalid/private'), 'Only Discord webhook destinations are accepted');
 echo "Notification recipient, moderation, archive, deduplication, unsubscribe, disabled-account, retry, artwork routing and privacy checks passed.\n";

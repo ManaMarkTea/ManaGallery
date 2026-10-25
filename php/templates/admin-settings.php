@@ -17,22 +17,18 @@
     <?php endif; ?>
 </section>
 <section class="prototype-panel">
-    <h2>Discord artwork announcements</h2>
-    <p>Choose a channel for each category. In Discord, open that channel's Settings, then Integrations, then Webhooks. Create a webhook and paste its URL below.</p>
-    <p class="help">Only newly published uploads are announced. Pending uploads wait for approval. Existing artwork is not reposted. Comment notifications keep their existing channel.</p>
+    <h2>Discord notifications</h2>
+    <?php $commentConfigured = notification_comment_webhook() !== ''; ?>
+    <p>Comment channel: <?= $commentConfigured ? 'connected' : 'not connected' ?>.</p>
     <form class="prototype-form" action="/admin/discord" method="post" autocomplete="off">
         <?= csrf_field() ?>
-        <?php foreach ($all['categories'] as $category): ?>
-            <?php $categoryId = (int)$category['id'];
-            $configured = notification_upload_webhook(['categoryId' => $categoryId]) !== ''; ?>
-            <label><?= e($category['name']) ?><?= $configured ? ' - connected' : '' ?>
-                <input type="password" name="webhook[<?= $categoryId ?>]" aria-label="<?= e($category['name']) ?> webhook" autocomplete="new-password" placeholder="<?= $configured ? 'Leave empty to keep this destination' : 'https://discord.com/api/webhooks/...' ?>">
-            </label>
-            <?php if ($configured): ?>
-                <label class="checkbox-field"><input type="checkbox" name="clearWebhook[]" value="<?= $categoryId ?>">Disconnect <?= e($category['name']) ?></label>
-            <?php endif; ?>
-        <?php endforeach; ?>
+        <label>Comment channel webhook<input type="password" name="commentWebhook" autocomplete="new-password" placeholder="<?= $commentConfigured ? 'Leave empty to keep this destination' : 'https://discord.com/api/webhooks/...' ?>"></label>
+        <?php if ($commentConfigured): ?>
+            <label class="checkbox-field"><input type="checkbox" name="clearCommentWebhook" value="1">Disconnect comment channel</label>
+        <?php endif; ?>
+        <label class="checkbox-field"><input type="checkbox" name="artworkFallback" <?= notification_artwork_fallback() ? 'checked' : '' ?>>Send artwork announcements to the comment channel when a category has no webhook</label>
+        <p class="help">When this is off, categories without a webhook skip artwork announcements. Configure category destinations under <a href="/admin/categories">Categories</a>.</p>
         <p class="help">Webhook URLs are credentials. Saved URLs stay private and are never displayed here.</p>
-        <button>Save Discord destinations</button>
+        <button>Save Discord settings</button>
     </form>
 </section>

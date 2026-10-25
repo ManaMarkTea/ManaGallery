@@ -82,18 +82,23 @@ the response finishes. Keep the five-minute scheduled worker for retries and
 larger queues. Admin > Site health also has a **Send pending notifications now**
 button. Other PHP interfaces use the scheduled worker or this button.
 
-Comment posts include the artwork preview and use the existing private
-`discord_webhook` setting. They cannot ping Discord members.
+Comment posts include the artwork preview and cannot ping Discord members.
+Configure their webhook under **Admin > Settings > Discord notifications**.
+Existing private `discord_webhook` configuration is used until changed there.
 
-To announce new artwork, open **Admin > Settings > Discord artwork announcements**.
+To announce new artwork, open **Admin > Categories** and edit a category.
 For each gallery category, create a webhook in its Discord channel under
 **Edit Channel > Integrations > Webhooks**, then paste that URL into the matching
-category field. Leave a field empty to keep its destination, or select Disconnect
-to turn it off. Saved webhook URLs are never displayed in the page.
+category's **Discord artwork webhook** field. Leave it empty to keep the current
+destination, or select **Remove category webhook** to clear it. Saved webhook
+URLs are never displayed in the page.
 
 Announcements run when a new upload is published or approved. Pending and hidden
 artwork is excluded; imported artwork is not reposted. Each artwork is announced
 once, with its title, artist, preview and a link. Categories without a destination
-do not post to another channel. Removing or hiding artwork before delivery cancels
+skip announcements by default. To send them to the comment channel instead,
+enable the fallback checkbox under **Settings > Discord notifications**.
+An explicit category webhook always takes precedence. With no comment webhook,
+the fallback has nowhere to post and skips announcements. Removing or hiding artwork before delivery cancels
 its queued announcement. Delivery errors use the same bounded retry queue as
 comment notifications.
