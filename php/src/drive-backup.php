@@ -54,6 +54,8 @@ final class DriveBackupClient
                 CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_CONNECTTIMEOUT => 15,
                 CURLOPT_TIMEOUT => 180,
+                CURLOPT_LOW_SPEED_LIMIT => 1024,
+                CURLOPT_LOW_SPEED_TIME => 45,
                 CURLOPT_HEADERFUNCTION => static function ($handle, string $line) use (&$responseHeaders): int {
                     if (str_contains($line, ':')) {
                         [$name, $value] = explode(':', $line, 2);
@@ -66,11 +68,13 @@ final class DriveBackupClient
             $response = curl_exec($curl);
             $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
             curl_close($curl);
-            if ($response !== false && $status !== 429 && $status < 500) {
+            $reason = $response === false ? null : (json_decode($response, true)['error']['errors'][0]['reason'] ?? null);
+            $rateLimited = $status === 429 || ($status === 403 && in_array($reason, ['rateLimitExceeded', 'userRateLimitExceeded'], true));
+            if ($response !== false && !$rateLimited && $status < 500) {
                 return ['status' => $status, 'headers' => $responseHeaders, 'body' => $response];
             }
             if ($attempt < 3) {
-                sleep(2 ** $attempt);
+                sleep($rateLimited ? 15 * ($attempt + 1) : 2 ** $attempt);
             }
         }
         // Do not log request URLs, tokens or Google's echoed request bodies.
@@ -204,6 +208,38 @@ final class DriveBackupClient
         }
 
         return $folder['id'];
+    }
+
+    public function download(string $id, string $destination, int $bytes, string $sha256): void
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/D', $id) || file_exists($destination) || is_link($destination)
+            || !preg_match('/^[a-f0-9]{64}$/D', $sha256)) {
+            throw new RuntimeException('Invalid recovery download destination or receipt');
+        }
+        $temporary = $destination . '.partial';
+        $output = fopen($temporary, 'xb');
+        if (!$output) {
+            throw new RuntimeException('Use a fresh recovery download directory');
+        }
+        $curl = curl_init('https://www.googleapis.com/drive/v3/files/' . $id . '?alt=media');
+        curl_setopt_array($curl, [
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->accessToken],
+            CURLOPT_FILE => $output,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_FAILONERROR => true,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT => 3600,
+        ]);
+        $ok = curl_exec($curl);
+        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        fclose($output);
+        if (!$ok || $status !== 200 || filesize($temporary) !== $bytes || hash_file('sha256', $temporary) !== $sha256) {
+            throw new RuntimeException('Downloaded Drive archive failed verification; partial file retained');
+        }
+        if (!rename($temporary, $destination)) {
+            throw new RuntimeException('Cannot publish checked recovery download');
+        }
     }
 
     private function nextOffset(array $response, int $size): int

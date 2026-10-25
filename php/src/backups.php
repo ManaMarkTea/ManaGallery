@@ -38,6 +38,14 @@ function backup_health(?array $raw = null, ?int $now = null): array
             'maxAgeSeconds' => 9 * 86400,
         ],
     ];
+    if (($raw['provider'] ?? '') === 'php-drive') {
+        $jobDefinitions['backup']['label'] = 'Encrypted PHP backup';
+        $jobDefinitions['maintenance'] = [
+            'label' => 'Archive verification',
+            'cadence' => 'Daily',
+            'maxAgeSeconds' => 36 * 3600,
+        ];
+    }
 
     foreach ($jobDefinitions as $kind => $definition) {
         $maxAgeSeconds = $definition['maxAgeSeconds'];

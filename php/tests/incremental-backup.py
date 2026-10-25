@@ -82,11 +82,39 @@ class IncrementalBackupTests(unittest.TestCase):
         corrupt.write_bytes(self.delta.read_bytes()[:100])
         self.command('restore-chain.php', self.root / 'corrupt', self.password, self.full, corrupt, success=False)
 
+    def test_manifest_path_traversal_rejected(self):
+        malicious = self.root / 'malicious.zip'
+        creator = self.root / 'create-malicious.php'
+        creator.write_text('''<?php
+$z=new ZipArchive();$z->open($argv[1],ZipArchive::CREATE);$z->setPassword(file_get_contents($argv[2]));
+$m=['format'=>'ManaGallery recovery v2','id'=>'fixture','parent'=>null,'files'=>['../outside'=>['bytes'=>4,'sha256'=>hash('sha256','evil')]],'changed'=>['../outside'],'deleted'=>[]];
+$z->addFromString('manifest.json',json_encode($m));$z->setEncryptionName('manifest.json',ZipArchive::EM_AES_256);
+$z->addFromString('../outside','evil');$z->setEncryptionName('../outside',ZipArchive::EM_AES_256);$z->close();
+''')
+        subprocess.run([PHP, str(creator), str(malicious), str(self.password)], check=True, capture_output=True)
+        self.command('restore-chain.php', self.root / 'malicious-restore', self.password, malicious, success=False)
+        self.assertFalse((self.root / 'outside').exists())
+
     def test_new_full_baseline_restores_independently(self):
         self.command('snapshot.php', self.app, self.base, self.password, '--incremental', '--full')
         baseline = self.base / json.loads((self.base / 'latest.json').read_text())['archive']
         self.assertIsNone(json.loads((self.base / 'chain-state.json').read_text())['parent'])
         self.command('restore-chain.php', self.root / 'new-full', self.password, baseline)
+
+    def test_status_preserves_prior_success_when_cloud_or_restore_fails(self):
+        settings = self.root / 'settings.json'
+        settings.write_text(json.dumps({'appDirectory': str(self.app), 'backupDirectory': str(self.base)}))
+        (self.base / 'drive-receipts.json').write_text(json.dumps({self.full.name: {'checked': 123}}))
+        (self.base / 'drive-restore-check.json').write_text(json.dumps({'status': 'failed', 'checked': 456, 'lastRun': 789}))
+        self.command('drive-backup-status.php', settings, '1', '0')
+        status = json.loads((self.app / 'storage/backup-status.json').read_text())
+        self.assertEqual(status['provider'], 'php-drive')
+        self.assertEqual(status['jobs']['cloud']['status'], 'failed')
+        self.assertEqual(status['jobs']['cloud']['lastSuccess'], 123)
+        self.assertEqual(status['jobs']['backup']['status'], 'success')
+        self.assertEqual(status['jobs']['restore']['status'], 'failed')
+        self.assertEqual(status['jobs']['restore']['lastSuccess'], 456)
+        self.assertEqual(status['jobs']['restore']['lastRun'], 789)
 
 
 if __name__ == '__main__':

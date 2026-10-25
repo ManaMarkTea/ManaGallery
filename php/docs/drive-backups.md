@@ -58,6 +58,17 @@ The restore checks chain order, paths, every file checksum and SQLite integrity.
 It never replaces a live installation. Keep a copy of the recovery password
 outside the server, and test a downloaded chain after setup and periodically.
 
+While the local archive inventory is available, this command downloads the latest
+chain from Drive and runs the restore automatically:
+
+```sh
+php scripts/verify-drive-backup.php /private/drive-settings.json /private/new-recovery-check
+```
+
+It writes a separate restore-check result. An upload checksum by itself does not
+count as a successful recovery test. Keep the check directory private: it holds
+decrypted configuration, member data and artwork.
+
 ## Retention
 
 The tools do not delete backup chains automatically. Keep the full ZIP and every

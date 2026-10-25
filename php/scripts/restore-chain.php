@@ -110,9 +110,11 @@ foreach ($chain as [$zip, $manifest]) {
         }
         $hash = hash_init('sha256');
         $bytes = 0;
+        $expected = $manifest['files'][$path];
         while (!feof($input)) {
             $chunk = fread($input, 1024 * 1024);
-            if ($chunk === false || fwrite($output, $chunk) !== strlen($chunk)) {
+            if ($chunk === false || $bytes + strlen($chunk) > $expected['bytes']
+                || fwrite($output, $chunk) !== strlen($chunk)) {
                 throw new RuntimeException('Incomplete recovery write');
             }
             $bytes += strlen($chunk);
@@ -120,7 +122,6 @@ foreach ($chain as [$zip, $manifest]) {
         }
         fclose($input);
         fclose($output);
-        $expected = $manifest['files'][$path];
         if ($bytes !== $expected['bytes'] || hash_final($hash) !== $expected['sha256']) {
             throw new RuntimeException('Recovered file checksum mismatch; destination is incomplete');
         }
