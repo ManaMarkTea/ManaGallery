@@ -6,7 +6,7 @@
   "shared_hosting": {
     "host": "ssh.provider.example",
     "user": "hosting-user",
-    "private_app": "~/rendergallery-php/app"
+    "private_app": "~/managallery-php/app"
   },
   "credentials": "Store passwords in a password manager or server-only config, not this file"
 }
