@@ -34,6 +34,10 @@ verify(valid_discord_invite('https://discord.com/invite/fixtureInvite'), 'Discor
 foreach (['javascript:alert(1)', 'https://discord.gg.evil.invalid/invite', 'https://discord.gg/test?redirect=evil', 'https://discord.com/api/webhooks/' . '123/token'] as $url) {
     verify(!valid_discord_invite($url), 'Only public Discord invite links accepted');
 }
+$oldDatabase = new PDO('sqlite:' . private_directory() . '/php-gallery.sqlite');
+$oldDatabase->query('PRAGMA journal_mode=WAL')->fetchColumn();
+$oldDatabase = null;
+verify(query('PRAGMA journal_mode')->fetchColumn() === 'delete', 'Existing WAL databases switch to the network-storage default');
 verify((int)query('PRAGMA busy_timeout')->fetchColumn() === 5000, 'Bounded SQLite wait');
 verify((int)query('PRAGMA foreign_keys')->fetchColumn() === 1, 'Foreign keys enabled');
 verify(username_error('???', demo()) !== null, 'Invalid username');
@@ -61,6 +65,16 @@ try {
 } catch (DomainException) {
 }
 verify((int)query('SELECT COUNT(*) FROM users')->fetchColumn() === 0, 'Failed transaction rolls back');
+try {
+    with_write(function () {
+        database()->exec('ROLLBACK');
+        throw new DomainException('Original failure preserved');
+    });
+    throw new RuntimeException('Expected original transaction error');
+} catch (DomainException $error) {
+    verify($error->getMessage() === 'Original failure preserved', 'An automatic rollback does not mask the original error');
+}
+
 take_attempt('fixture', 'fictional-address', 2, 3600);
 take_attempt('fixture', 'fictional-address', 2, 3600);
 verify(rejects(fn () => take_attempt('fixture', 'fictional-address', 2, 3600)), 'Throttle enforced');

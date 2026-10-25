@@ -62,3 +62,14 @@ For a standalone encrypted recovery archive, use
 `php scripts/snapshot.php PRIVATE_APP PRIVATE_BACKUP_DIR PASSWORD_FILE`.
 The one-time scripts used to migrate our original installation are maintained
 privately; they are not required to run ManaGallery on a new host.
+## SQLite and logs
+
+Use the default DELETE journal mode on shared or network storage. Set
+`sqlite_journal_mode` to `WAL` only when the database is on a local disk.
+SQLite WAL does not support network filesystems such as NFS.
+
+Application errors go to the private storage directory's `error_log`. Each
+application request has an `X-Gallery-Request-ID` header; error pages show that
+reference too. Admin > Site health lists recent referenced errors. Provider
+errors that occur before PHP runs must be checked in the hosting control panel.
+

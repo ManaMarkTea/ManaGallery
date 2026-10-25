@@ -9,6 +9,31 @@ function valid_discord_invite(string $url): bool
     );
 }
 
+function recent_application_errors(): array
+{
+    $file = private_directory() . '/error_log';
+    if (!is_file($file)) {
+        return [];
+    }
+    $handle = fopen($file, 'rb');
+    if (!$handle) {
+        return [];
+    }
+    fseek($handle, max(0, filesize($file) - 65536));
+    $contents = stream_get_contents($handle);
+    fclose($handle);
+    $errors = [];
+    foreach (explode("\n", $contents) as $line) {
+        $start = strpos($line, '{');
+        $entry = $start === false ? null : json_decode(substr($line, $start), true);
+        if (is_array($entry) && preg_match('/^[a-f0-9]{16}$/D', $entry['requestId'] ?? '')) {
+            $errors[] = $entry;
+        }
+    }
+
+    return array_reverse(array_slice($errors, -10));
+}
+
 function site_settings(): array
 {
     $values = query('SELECT key,value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);

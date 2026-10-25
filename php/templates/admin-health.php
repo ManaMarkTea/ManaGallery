@@ -10,6 +10,8 @@ $held = (int)query('SELECT COUNT(*) FROM comments WHERE deleted=0 AND moderation
     'Web server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unavailable',
     'Operating system' => PHP_OS_FAMILY,
     'SQLite version' => (string)query('SELECT sqlite_version()')->fetchColumn(),
+    'SQLite journal mode' => (string)query('PRAGMA journal_mode')->fetchColumn(),
+    'PHP error log' => (string)ini_get('error_log'),
     'Memory limit' => (string)ini_get('memory_limit'),
     'Upload limit' => (string)ini_get('upload_max_filesize'),
     'POST limit' => (string)ini_get('post_max_size'),
@@ -20,6 +22,22 @@ $held = (int)query('SELECT COUNT(*) FROM comments WHERE deleted=0 AND moderation
 <p class="help">Values come from the PHP process serving this page. Terminal PHP settings may differ.</p>
 <p><?= number_format($imports) ?> imported identities &middot; <?= number_format((int)query('SELECT COUNT(*) FROM imported_accounts WHERE local_user_id IS NOT NULL')->fetchColumn()) ?> activated accounts</p>
 <p>Extensions: <?php foreach (['pdo_sqlite', 'gd', 'mbstring', 'fileinfo', 'sodium', 'openssl', 'curl', 'zip'] as $extension): ?><span class="status-pill"><?= e($extension) ?>: <?= extension_loaded($extension) ? 'Available' : 'Missing' ?></span> <?php endforeach; ?></p></section>
+<section class="prototype-panel">
+    <h2>Recent application errors</h2>
+    <p class="help">Match the reference shown on an error page to its entry here. Requests blocked by the hosting provider before PHP runs will not appear in this log.</p>
+    <?php $applicationErrors = recent_application_errors(); ?>
+    <?php if (!$applicationErrors): ?>
+        <p>No application errors with request references have been recorded.</p>
+    <?php endif; ?>
+    <?php foreach ($applicationErrors as $applicationError): ?>
+        <details>
+            <summary><?= e($applicationError['requestId']) ?> · <?= e($applicationError['path'] ?? '') ?></summary>
+            <?php render_time(isset($applicationError['time']) ? strtotime($applicationError['time']) : null); ?>
+            <p><?= e($applicationError['message'] ?? '') ?></p>
+            <p class="help"><?= e($applicationError['file'] ?? '') ?>:<?= (int)($applicationError['line'] ?? 0) ?></p>
+        </details>
+    <?php endforeach; ?>
+</section>
 <section class="prototype-panel"><h2>Community features</h2><p><?= number_format((int)query('SELECT COUNT(*) FROM artwork_viewers WHERE claimed_by IS NULL')->fetchColumn()) ?> unique artwork/viewer pairs · <?= number_format((int)query('SELECT COUNT(*) FROM favorites')->fetchColumn()) ?> saved favorites</p><p><?= number_format(count(array_filter(attachment_catalogue('materials')))) ?> material entries · <?= number_format(count(array_filter(attachment_catalogue('models')))) ?> original model entries · <?= number_format(count(attachment_catalogue('models', true))) ?> GLB entries</p><p class="help">Catalog counts describe configured downloads. Each download verifies the actual file size and SHA-256 before sending bytes.</p></section>
 <?php require __DIR__ . '/admin-backups.php'; ?>
 <?php notification_schema();

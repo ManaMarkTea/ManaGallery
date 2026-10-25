@@ -15,6 +15,11 @@ require dirname(__DIR__) . '/src/legacy.php';
 require dirname(__DIR__) . '/src/analytics.php';
 require dirname(__DIR__) . '/src/backups.php';
 require dirname(__DIR__) . '/src/notifications.php';
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ini_set('error_log', private_directory() . '/error_log');
+$requestId = bin2hex(random_bytes(8));
+header('X-Gallery-Request-ID: ' . $requestId);
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
@@ -129,8 +134,24 @@ try {
     header('Content-Type: text/html; charset=utf-8');
     require dirname(__DIR__) . '/templates/layout.php';
 } catch (Throwable $error) {
-    error_log('PHP gallery: ' . $error->getMessage());
+    $trace = array_map(static fn (array $frame): array => [
+        'file' => basename($frame['file'] ?? ''),
+        'line' => $frame['line'] ?? null,
+        'function' => $frame['function'] ?? '',
+    ], $error->getTrace());
+    error_log(json_encode([
+        'time' => gmdate('c'),
+        'requestId' => $requestId,
+        'method' => $method,
+        'path' => $path,
+        'type' => get_class($error),
+        'message' => $error->getMessage(),
+        'file' => basename($error->getFile()),
+        'line' => $error->getLine(),
+        'trace' => $trace,
+    ], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES));
     http_response_code(503);
+    header('Retry-After: 30');
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'The gallery is temporarily unavailable. Check the private server error log.';
+    echo 'The gallery is temporarily unavailable. Please try again shortly. Reference: ' . $requestId;
 }

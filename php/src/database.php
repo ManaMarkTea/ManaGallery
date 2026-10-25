@@ -24,7 +24,19 @@ function database(): PDO
     }
     $file = private_directory() . '/php-gallery.sqlite';
     $connection = new PDO('sqlite:' . $file, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-    $connection->exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+    $connection->exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
+    // WAL requires local shared memory and is unsuitable for network storage.
+    $journalMode = strtoupper(config()['sqlite_journal_mode'] ?? 'DELETE');
+    if (!in_array($journalMode, ['DELETE', 'WAL'], true)) {
+        throw new RuntimeException('Unsupported SQLite journal mode');
+    }
+    $currentMode = strtoupper($connection->query('PRAGMA journal_mode')->fetchColumn());
+    if ($currentMode !== $journalMode) {
+        $actualMode = strtoupper($connection->query('PRAGMA journal_mode=' . $journalMode)->fetchColumn());
+        if ($actualMode !== $journalMode) {
+            throw new RuntimeException('Cannot select the configured SQLite journal mode');
+        }
+    }
     $connection->exec("CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY, username TEXT NOT NULL, username_key TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('member','admin')),
@@ -59,7 +71,9 @@ function database(): PDO
       CREATE TABLE IF NOT EXISTS imported_favorites (identity TEXT NOT NULL REFERENCES imported_accounts(identity), artwork_id INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(identity,artwork_id));
       CREATE TABLE IF NOT EXISTS artwork_viewers (artwork_id INTEGER NOT NULL, viewer_key TEXT NOT NULL, claimed_by TEXT, first_seen INTEGER NOT NULL, PRIMARY KEY(artwork_id,viewer_key));");
     @chmod($file, 0600);
-    query("INSERT OR IGNORE INTO settings(key,value) VALUES ('throttle_secret',?)", [bin2hex(random_bytes(32))]);
+    if (!query("SELECT 1 FROM settings WHERE key='throttle_secret'")->fetchColumn()) {
+        query("INSERT OR IGNORE INTO settings(key,value) VALUES ('throttle_secret',?)", [bin2hex(random_bytes(32))]);
+    }
 
     return $connection;
 }
@@ -83,7 +97,12 @@ function with_write(callable $work): mixed
 
         return $result;
     } catch (Throwable $error) {
-        database()->exec('ROLLBACK');
+        try {
+            database()->exec('ROLLBACK');
+        } catch (Throwable) {
+            // SQLite can already have rolled back after an I/O failure.
+            // Preserve the original error rather than masking it with this one.
+        }
         throw $error;
     }
 }

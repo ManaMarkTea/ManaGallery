@@ -1,6 +1,8 @@
 <?php
 // Copy to config.local.php; all paths are private and outside public/.
 return [
+    // Use WAL only when the database is on local storage, never NFS.
+    'sqlite_journal_mode' => 'DELETE',
     // Enable only on the production installation after mail transport is configured.
     'notification_mail_enabled' => false,
     'notification_origin' => 'https://gallery.example.com',

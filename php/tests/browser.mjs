@@ -62,6 +62,7 @@ try{
   await page.getByLabel('Discord invite link',{exact:true}).fill('https://discord.gg/fixtureInvite');
   await page.getByLabel('Site name',{exact:true}).fill('My new gallery');
   await page.getByRole('button',{name:'Save settings',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'Settings saved.'}).waitFor();
   await page.reload();
   assert.equal(await page.getByLabel('Site name',{exact:true}).inputValue(),'My new gallery');
   assert.equal(await page.locator('.main-nav a').filter({hasText:'Discord'}).getAttribute('href'),'https://discord.gg/fixtureInvite');
@@ -125,6 +126,24 @@ try{
   await page.goto('http://127.0.0.1:8082/');const card=page.locator('[data-model-preview]').first();
   await card.hover();await card.locator('[data-model-state="ready"]').waitFor();
   await page.mouse.move(0,0);await card.locator('canvas').waitFor({state:'detached'});
+  const catalogueBeforeError=readFileSync(env.RENDERGALLERY_PHP_CATALOGUE);
+  try {
+    writeFileSync(env.RENDERGALLERY_PHP_CATALOGUE,'invalid fictional catalogue');
+    const failed=await guest.request.get('http://127.0.0.1:8082/?private=fixture-query-not-for-logs');
+    assert.equal(failed.status(),503);
+    const reference=failed.headers()['x-gallery-request-id'];
+    assert.match(reference,/^[a-f0-9]{16}$/);
+    assert((await failed.text()).includes(reference));
+    const errorLog=readFileSync(path.join(storage,'error_log'),'utf8');
+    assert(errorLog.includes(reference));
+    assert(!errorLog.includes('fixture-query-not-for-logs'));
+  } finally {
+    writeFileSync(env.RENDERGALLERY_PHP_CATALOGUE,catalogueBeforeError);
+  }
+  await page.goto('/admin/health');
+  assert(await page.getByText('Recent application errors',{exact:true}).isVisible());
+  assert.equal((await guest.request.get('http://127.0.0.1:8082/admin/health',{maxRedirects:0})).status(),303);
+  assert.equal((await member.request.get('/admin/health')).status(),403);
   await guest.close();await memberContext.close();await context.close();
   console.log('Passed fresh initialization, no-overwrite, registration, admin setup, settings, upload approval/privacy, CSRF, favorites and responsive gallery checks.');
 }catch(error){console.error(logs.slice(-6000));throw error;}
