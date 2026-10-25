@@ -6,17 +6,22 @@ require dirname(__DIR__) . '/src/gallery.php';
 require dirname(__DIR__) . '/src/database.php';
 require dirname(__DIR__) . '/src/auth.php';
 require dirname(__DIR__) . '/src/uploads.php';
-require dirname(__DIR__) . '/src/imported-auth.php';
-require dirname(__DIR__) . '/src/admin.php';
-require dirname(__DIR__) . '/src/branding.php';
-require dirname(__DIR__) . '/src/comments.php';
-require dirname(__DIR__) . '/src/community.php';
-require dirname(__DIR__) . '/src/downloads.php';
-require dirname(__DIR__) . '/src/actions.php';
-require dirname(__DIR__) . '/src/legacy.php';
-require dirname(__DIR__) . '/src/analytics.php';
-require dirname(__DIR__) . '/src/backups.php';
-require dirname(__DIR__) . '/src/notifications.php';
+$method = $_SERVER['REQUEST_METHOD'];
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$mediaRequest = (bool)preg_match('~^/media/[1-9][0-9]*/(?:full|preview)$~D', $path);
+if (!$mediaRequest) {
+    require dirname(__DIR__) . '/src/imported-auth.php';
+    require dirname(__DIR__) . '/src/admin.php';
+    require dirname(__DIR__) . '/src/branding.php';
+    require dirname(__DIR__) . '/src/comments.php';
+    require dirname(__DIR__) . '/src/community.php';
+    require dirname(__DIR__) . '/src/downloads.php';
+    require dirname(__DIR__) . '/src/actions.php';
+    require dirname(__DIR__) . '/src/legacy.php';
+    require dirname(__DIR__) . '/src/analytics.php';
+    require dirname(__DIR__) . '/src/backups.php';
+    require dirname(__DIR__) . '/src/notifications.php';
+}
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 ini_set('error_log', private_directory() . '/error_log');
@@ -26,8 +31,6 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Cache-Control: private, no-store');
-$method = $_SERVER['REQUEST_METHOD'];
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $postRoutes = ['/register', '/login', '/logout', '/upload', '/account/password', '/admin/approve', '/admin/trust', '/admin/disable', '/admin/visibility', '/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/comment', '/comment/delete', '/favorite'];
 $adminPages = ['/admin', '/admin/review', '/admin/users', '/admin/artworks', '/admin/comments', '/admin/categories', '/admin/settings', '/admin/activity', '/admin/health'];
 $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notifications/confirm', '/notifications/unsubscribe']);
@@ -39,12 +42,16 @@ if (!in_array($method, ['GET', 'HEAD', 'POST'], true) || ($method === 'POST' && 
     http_response_code(405);
     exit('Method not allowed');
 }
+$bootstrapMs = (hrtime(true) - $requestStarted) / 1e6;
 try {
+    $guardStarted = hrtime(true);
     $siteLock = fopen(private_directory() . '/site.lock', 'c');
     if (!$siteLock || !flock($siteLock, LOCK_SH)) {
         throw new RuntimeException('Cannot acquire gallery request lock');
     }
-    if (in_array($method, ['GET', 'HEAD'], true)) {
+    $guardMs = (hrtime(true) - $guardStarted) / 1e6;
+    $redirectsStarted = hrtime(true);
+    if (!$mediaRequest && in_array($method, ['GET', 'HEAD'], true)) {
         $routesFile = private_directory() . '/legacy-routes.json';
         $routes = is_file($routesFile) ? json_decode(file_get_contents($routesFile), true, 512, JSON_THROW_ON_ERROR) : [];
         if (($legacy = legacy_destination($path, $_GET, $routes)) !== null) {
@@ -55,11 +62,11 @@ try {
     if (in_array($method, ['GET', 'HEAD'], true) && preg_match('~^/site-icon/([a-f0-9]{64})\.png$~D', $path, $matches)) {
         serve_gallery_icon($matches[1], $method);
     }
+    $earlierTiming = ['bootstrap' => $bootstrapMs, 'guard' => $guardMs, 'redirects' => (hrtime(true) - $redirectsStarted) / 1e6];
     $sessionStarted = hrtime(true);
-    $mediaRequest = (bool)preg_match('~^/media/[1-9][0-9]*/(?:full|preview)$~D', $path);
     start_session($mediaRequest);
     $user = current_user();
-    if (notification_public_action($path, $method)) {
+    if (!$mediaRequest && notification_public_action($path, $method)) {
         exit;
     }
     if (preg_match('~^/media/([1-9][0-9]*)/(full|preview)$~D', $path, $matches)) {
@@ -88,12 +95,12 @@ try {
             header('Vary: Cookie');
             header('ETag: ' . $etag);
             if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
-                media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted);
+                media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted, $earlierTiming);
                 http_response_code(304);
                 exit;
             }
         }
-        media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted);
+        media_timing_headers($requestStarted, $sessionMs, $lookupMs, $fileStarted, $earlierTiming);
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . filesize($file));
         if ($method !== 'HEAD') {

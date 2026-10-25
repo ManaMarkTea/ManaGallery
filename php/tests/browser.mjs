@@ -143,6 +143,11 @@ try{
   const publishedPreview=await guest.request.get(previewPath);
   assert.equal(publishedPreview.status(),200);
   assert.match(publishedPreview.headers()['server-timing'],/session;dur=[0-9.]+, lookup;dur=[0-9.]+, file;dur=[0-9.]+, app;dur=[0-9.]+/);
+  assert.match(publishedPreview.headers()['server-timing'],/^bootstrap;dur=[0-9.]+, guard;dur=[0-9.]+, redirects;dur=[0-9.]+/);
+  writeFileSync(path.join(storage,'legacy-routes.json'),'broken migration map fixture');
+  try {
+    assert.equal((await guest.request.get(previewPath)).status(),200,'Modern image requests must not read the legacy redirect map');
+  } finally { writeFileSync(path.join(storage,'legacy-routes.json'),'{}'); }
   assert.equal(publishedPreview.headers()['cache-control'],'private, max-age=300, must-revalidate');
   const etag=publishedPreview.headers()['etag'];assert(etag);
   const visibilityForm={id:artwork.split('/').pop(),csrf:await page.locator('input[name="csrf"]').first().inputValue()};

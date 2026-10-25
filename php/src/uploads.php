@@ -6,15 +6,19 @@ const MEMBER_QUOTA = 1073741824;
 const GALLERY_QUOTA = 2147483648;
 const DISK_RESERVE = 2147483648;
 
-function media_timing_headers(int $requestStarted, float $sessionMs, float $lookupMs, int $fileStarted): void
+function media_timing_headers(int $requestStarted, float $sessionMs, float $lookupMs, int $fileStarted, array $earlier = []): void
 {
-    header(sprintf(
-        'Server-Timing: session;dur=%.2F, lookup;dur=%.2F, file;dur=%.2F, app;dur=%.2F',
-        $sessionMs,
-        $lookupMs,
-        (hrtime(true) - $fileStarted) / 1e6,
-        (hrtime(true) - $requestStarted) / 1e6
-    ));
+    $timings = $earlier + [
+        'session' => $sessionMs,
+        'lookup' => $lookupMs,
+        'file' => (hrtime(true) - $fileStarted) / 1e6,
+        'app' => (hrtime(true) - $requestStarted) / 1e6,
+    ];
+    $values = [];
+    foreach ($timings as $name => $duration) {
+        $values[] = sprintf('%s;dur=%.2F', $name, $duration);
+    }
+    header('Server-Timing: ' . implode(', ', $values));
 }
 
 function uploaded_artwork(array $p): array

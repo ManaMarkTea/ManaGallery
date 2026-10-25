@@ -57,6 +57,9 @@ and counting views. Sessions are read and closed immediately for image requests;
 the same visibility and file-path checks still apply.
 
 Successful image responses include a `Server-Timing` header. In browser DevTools,
+`bootstrap` covers loading PHP modules and preparing the request, `guard` covers
+acquiring the shared deployment/backup lock, and `redirects` covers legacy routing.
+Modern image requests skip the legacy map and load only the core media modules.
 `session` covers session/authentication work, `lookup` covers finding the artwork,
 `file` covers file validation and cache checks, and `app` covers total PHP work
 before sending the response. These measurements exclude delays before PHP starts
