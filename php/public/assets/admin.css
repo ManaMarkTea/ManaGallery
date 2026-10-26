@@ -1079,3 +1079,16 @@
 .health-runtime { display:grid; grid-template-columns:minmax(9rem,1fr) minmax(0,2fr); gap:10px 20px; font-size:13px; }
 .health-runtime dt { color:#64748b; }
 .health-runtime dd { margin:0; overflow-wrap:anywhere; color:#192b45; }
+
+/* Keep long category lists easy to scan and edit. */
+.admin-shell .category-editor, .admin-shell .category-create { margin:8px 0; padding:12px 16px; }
+.admin-shell .category-editor summary, .admin-shell .category-create summary { min-height:24px; }
+.admin-shell .category-editor[open] summary, .admin-shell .category-create[open] summary { margin-bottom:12px; }
+.admin-shell .category-editor .prototype-form, .admin-shell .category-create .prototype-form { gap:10px; }
+.admin-shell .category-editor label, .admin-shell .category-create label { gap:4px; }
+.admin-shell .category-editor input, .admin-shell .category-editor textarea { padding:8px 10px; }
+.admin-shell .category-editor .help, .admin-shell .category-create .help { margin:0; font-size:12px; }
+.admin-shell .category-editor > form + form { margin-top:10px; }
+.admin-shell .category-help { font-size:12px; margin:10px 0 16px; }
+.category-save-status { margin:0; font-size:12px; }
+.category-save-status[data-error] { color:#a02739; }

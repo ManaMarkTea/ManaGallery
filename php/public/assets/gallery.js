@@ -98,3 +98,43 @@ for (const time of document.querySelectorAll('time[data-local-time]')) {
 for (const form of document.querySelectorAll('form[data-confirm]')) {
   form.addEventListener('submit',event=>{ if (!confirm(form.dataset.confirm)) event.preventDefault(); });
 }
+
+// Save category edits without navigation, keeping other editors and scroll intact.
+document.addEventListener('submit', async event => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.matches('[data-category-save]') || event.defaultPrevented) return;
+  event.preventDefault();
+  if (form.dataset.saving) return;
+  const card = form.closest('[data-category-id]');
+  const body = new FormData(form);
+  const controls = [...form.elements].filter(control => !control.disabled);
+  let status = form.querySelector('.category-save-status');
+  if (!status) {
+    status = document.createElement('p'); status.className = 'category-save-status';
+    status.setAttribute('role', 'status'); form.append(status);
+  }
+  status.removeAttribute('data-error'); status.textContent = 'Saving...';
+  form.dataset.saving = 'true'; form.setAttribute('aria-busy', 'true');
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    const response = await fetch(form.action, { method: 'POST', body, credentials: 'same-origin' });
+    const documentResult = new DOMParser().parseFromString(await response.text(), 'text/html');
+    if (!response.ok) throw new Error(documentResult.querySelector('.form-error')?.textContent.trim() || 'Could not save. Please try again.');
+    if (new URL(response.url).pathname !== '/admin/categories') throw new Error('Your session may have expired. Sign in again before saving.');
+    const updated = [...documentResult.querySelectorAll('[data-category-id]')].find(node => node.dataset.categoryId === card.dataset.categoryId);
+    if (!updated) throw new Error('Could not confirm the save. Reload before trying again.');
+    const scrollX = window.scrollX, scrollY = window.scrollY;
+    card.innerHTML = updated.innerHTML;
+    const savedForm = card.querySelector('[data-category-save]');
+    const savedStatus = document.createElement('p'); savedStatus.className = 'category-save-status';
+    savedStatus.setAttribute('role', 'status'); savedStatus.textContent = 'Category saved.'; savedForm.append(savedStatus);
+    savedForm.querySelector('button').focus({ preventScroll: true });
+    window.scrollTo(scrollX, scrollY);
+  } catch (error) {
+    status.setAttribute('data-error', '');
+    status.textContent = error instanceof TypeError ? 'Connection interrupted. Check your connection before retrying.' : error.message;
+  } finally {
+    controls.forEach(control => { control.disabled = false; });
+    delete form.dataset.saving; form.removeAttribute('aria-busy');
+  }
+});
