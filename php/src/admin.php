@@ -62,11 +62,22 @@ function apply_categories(array $data): array
     foreach (query('SELECT * FROM category_overrides')->fetchAll() as $c) {
         $map[$c['id']] = $c;
     }
+    $hidden = query("SELECT key,value FROM settings WHERE key LIKE 'category_hidden:%'")->fetchAll(PDO::FETCH_KEY_PAIR);
+    foreach ($map as $id => &$category) {
+        $category['hiddenFromList'] = ($hidden['category_hidden:' . $id] ?? 'false') === 'true';
+    }
+    unset($category);
     $data['categories'] = array_values(array_filter($map, fn ($c) => !$c['deleted']));
-    usort($data['categories'], fn ($a, $b) => $a['sort_order'] <=> $b['sort_order'] ?: strcmp($a['name'], $b['name']));
+    usort($data['categories'], fn ($a, $b) => strnatcasecmp($a['name'], $b['name']) ?: (int)$a['id'] <=> (int)$b['id']);
 
     return $data;
 }
+// A hidden category remains addressable and keeps all its artwork.
+function listed_categories(array $categories, string $selected = ''): array
+{
+    return array_values(array_filter($categories, fn ($category) => empty($category['hiddenFromList']) || (string)$category['id'] === $selected));
+}
+
 function managed_accounts(): array
 {
     $accounts = [];
@@ -263,9 +274,9 @@ function admin_action(string $path, array $user, array $all): bool
             } else {
                 $name = param($_POST, 'name');
                 $description = param($_POST, 'description');
-                $order = filter_var(param($_POST, 'sort_order', '0'), FILTER_VALIDATE_INT);
-                if (!$name || mb_strlen($name) > 100 || mb_strlen($description) > 2000 || $order === false || abs($order) > 100000) {
-                    throw new DomainException('Enter a valid name, description and sort order.');
+                $order = 0;
+                if (!$name || mb_strlen($name) > 100 || mb_strlen($description) > 2000) {
+                    throw new DomainException('Enter a valid name and description.');
                 }
                 $actualId = $id;
                 if (!$actualId) {
@@ -280,6 +291,7 @@ function admin_action(string $path, array $user, array $all): bool
                 if ($webhook !== '' || isset($_POST['clearDiscordWebhook'])) {
                     query('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ['discord_upload:' . $actualId, $webhook]);
                 }
+                query('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ['category_hidden:' . $actualId, isset($_POST['hideFromList']) ? 'true' : 'false']);
                 query('INSERT INTO category_overrides(id,name,description,sort_order,deleted) VALUES (?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,sort_order=excluded.sort_order,deleted=0', [$actualId, $name, $description, $order]);
             }
             log_activity((int)$user['id'], 'Category ' . $action, (string)$id);
