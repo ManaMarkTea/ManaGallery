@@ -102,3 +102,7 @@ An explicit category webhook always takes precedence. With no comment webhook,
 the fallback has nowhere to post and skips announcements. Removing or hiding artwork before delivery cancels
 its queued announcement. Delivery errors use the same bounded retry queue as
 comment notifications.
+
+Discord artwork and comment messages attach the published artwork thumbnail
+directly, so Discord does not need to fetch an image from your hosting provider.
+Hidden and pending artwork is checked again before attaching an image.

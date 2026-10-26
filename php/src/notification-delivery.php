@@ -116,7 +116,7 @@ function notification_discord(array $comment, array $art): bool
 {
     $url = notification_comment_webhook();
 
-    return notification_discord_send($url, notification_discord_payload($comment, $art));
+    return notification_discord_send($url, notification_discord_payload($comment, $art), $art);
 }
 
 function notification_discord_artwork_payload(array $art): array
@@ -134,19 +134,47 @@ function notification_discord_artwork_payload(array $art): array
 
 function notification_discord_artwork(array $art): bool
 {
-    return notification_discord_send(notification_upload_webhook($art), notification_discord_artwork_payload($art));
+    return notification_discord_send(notification_upload_webhook($art), notification_discord_artwork_payload($art), $art);
 }
 
-function notification_discord_send(string $url, array $payload): bool
+function notification_discord_request(array $payload, ?array $art = null): array
+{
+    $image = null;
+    if ($art) {
+        $current = media_artwork((int)$art['id'], null);
+        if (!$current || !empty($current['hidden']) || !empty($current['pending'])) {
+            throw new DomainException('The artwork is no longer public.');
+        }
+        $file = isset($current['ownerId']) ? uploaded_media($current, false) : media_path($current, false, config()['media_root']);
+        if ($file && filesize($file) > 0 && filesize($file) <= 2097152) {
+            $bytes = file_get_contents($file);
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+            $extension = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'][$mime] ?? null;
+            if ($extension) {
+                $name = 'art-' . (int)$art['id'] . '-preview.' . $extension;
+                $image = new CURLStringFile($bytes, $name, $mime);
+                $payload['embeds'][0]['image'] = ['url' => 'attachment://' . $name];
+                $payload['attachments'] = [['id' => 0, 'filename' => $name]];
+            }
+        }
+    }
+    $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+
+    // Let cURL generate the multipart boundary. No public image fetch is needed.
+    return $image ? ['headers' => [], 'body' => ['payload_json' => $json, 'files[0]' => $image]] : ['headers' => ['Content-Type: application/json'], 'body' => $json];
+}
+
+function notification_discord_send(string $url, array $payload, ?array $art = null): bool
 {
     if (!preg_match('~^https://(?:discord\.com|discordapp\.com)/api/webhooks/[0-9]+/[A-Za-z0-9._-]+$~D', $url)) {
         throw new RuntimeException('Discord webhook is not configured');
     }
+    $request = notification_discord_request($payload, $art);
     $curl = curl_init($url . '?wait=true');
     curl_setopt_array($curl, [
         CURLOPT_POST => true,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE),
+        CURLOPT_HTTPHEADER => $request['headers'],
+        CURLOPT_POSTFIELDS => $request['body'],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 15,

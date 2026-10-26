@@ -62,6 +62,7 @@ jobs:
       - run: php tests/backups.php
       - run: php tests/drive-backup.php
       - run: php tests/notifications.php
+      - run: php tests/discord-images.php
       - run: php tests/security.php
       - run: php -d disable_functions=mail tests/mail-sender.php
       - run: php tests/smtp.php
