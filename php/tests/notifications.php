@@ -5,7 +5,7 @@ $directory = dirname(__DIR__) . '/test-results/notifications-' . bin2hex(random_
 putenv('RENDERGALLERY_PHP_DATA_DIR=' . $directory);
 function config(): array
 {
-    return ['notification_mail_enabled' => true, 'discord_webhook' => 'fixture-webhook-configured', 'notification_origin' => 'https://example.invalid', 'discord_upload_webhooks' => [2 => 'fixture-category-two']];
+    return ['public_preview_directory' => $GLOBALS['fixture_preview_directory'] ?? '', 'notification_mail_enabled' => true, 'discord_webhook' => 'fixture-webhook-configured', 'notification_origin' => 'https://example.invalid', 'discord_upload_webhooks' => [2 => 'fixture-category-two']];
 }
 function find_artwork(array $all, int $id): ?array
 {
@@ -29,6 +29,20 @@ require dirname(__DIR__) . '/src/notification-delivery.php';
 $payload = notification_discord_payload(['username' => 'Fictional artist', 'body' => '@everyone Nice work'], ['id' => 42, 'title' => 'Fictional artwork']);
 check($payload['embeds'][0]['image']['url'] === 'https://example.invalid/media/42/preview', 'Discord embeds the public artwork preview');
 check($payload['allowed_mentions']['parse'] === [], 'Discord comments cannot ping everyone');
+$GLOBALS['fixture_preview_directory'] = $directory . '/public-fixture';
+public_preview_schema();
+$previewFile = 'art-42-preview-' . str_repeat('a', 64) . '.jpg';
+query('INSERT INTO public_previews(artwork_id,filename) VALUES (?,?)', [42, $previewFile]);
+$staticArt = ['id' => 42, 'title' => 'Static artwork', 'author' => 'Artist', 'description' => 'A landscape.'];
+$staticComment = notification_discord_payload(['username' => 'Reader', 'body' => 'Nice'], $staticArt);
+$staticAnnouncement = notification_discord_artwork_payload($staticArt);
+check($staticComment['embeds'][0]['image']['url'] === 'https://example.invalid/previews/' . $previewFile, 'Comment embeds use published static images');
+check($staticAnnouncement['embeds'][0]['image']['url'] === $staticComment['embeds'][0]['image']['url'], 'Artwork announcements use the same published static image');
+check(str_contains($staticAnnouncement['embeds'][0]['description'], 'A landscape.'), 'Artwork announcements include the description');
+query('DELETE FROM public_previews WHERE artwork_id=42');
+check(notification_discord_preview_url($staticArt) === 'https://example.invalid/media/42/preview', 'Missing static exports retain the protected image route');
+unset($GLOBALS['fixture_preview_directory']);
+
 notification_schema();
 for ($i = 1;$i <= 5;$i++) {
     query('INSERT INTO users(id,username,username_key,password,created) VALUES (?,?,?,?,?)', [$i, 'user' . $i, 'user' . $i, 'fictional', 1]);

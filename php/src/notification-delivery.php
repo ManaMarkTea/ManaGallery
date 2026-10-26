@@ -87,6 +87,16 @@ function notification_smtp_client(array $smtp, string $from): \PHPMailer\PHPMail
 
     return $mail;
 }
+function notification_discord_preview_url(array $art): string
+{
+    // CLI workers do not load the page's public-preview module.
+    require_once __DIR__ . '/public-previews.php';
+    $previews = public_preview_urls();
+    $id = (int)$art['id'];
+
+    return notification_origin() . ($previews[$id] ?? '/media/' . $id . '/preview');
+}
+
 function notification_discord_payload(array $comment, array $art): array
 {
     return [
@@ -96,7 +106,7 @@ function notification_discord_payload(array $comment, array $art): array
                 'title' => mb_substr($art['title'], 0, 256),
                 'url' => notification_origin() . '/art/' . $art['id'] . '#comments',
                 'description' => mb_substr($comment['username'] . ': ' . $comment['body'], 0, 2000),
-                'image' => ['url' => notification_origin() . '/media/' . (int)$art['id'] . '/preview'],
+                'image' => ['url' => notification_discord_preview_url($art)],
             ],
         ],
     ];
@@ -116,8 +126,8 @@ function notification_discord_artwork_payload(array $art): array
         'embeds' => [[
             'title' => mb_substr($art['title'], 0, 256),
             'url' => notification_origin() . '/art/' . (int)$art['id'],
-            'description' => 'New artwork by ' . mb_substr($art['author'] ?? 'Community artist', 0, 100),
-            'image' => ['url' => notification_origin() . '/media/' . (int)$art['id'] . '/preview'],
+            'description' => mb_substr('New artwork by ' . ($art['author'] ?? 'Community artist') . (trim($art['description'] ?? '') !== '' ? "\n\n" . $art['description'] : ''), 0, 2000),
+            'image' => ['url' => notification_discord_preview_url($art)],
         ]],
     ];
 }
