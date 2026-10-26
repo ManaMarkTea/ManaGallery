@@ -130,6 +130,7 @@ function handle_action(string $path, ?array $user, array $all): void
         $updated = all_artworks(apply_categories(catalogue()));
         $art = find_artwork($updated, $id);
         if ($art) {
+            public_preview_publish((int)$art['id']);
             with_write(fn () => notification_enqueue_artwork($art));
             notification_schedule_delivery($updated);
         }
@@ -156,12 +157,15 @@ function handle_action(string $path, ?array $user, array $all): void
             exit('Artwork not found');
         }
         $files = [uploaded_media($item, true), uploaded_media($item, false)];
-        with_write(function () use ($item, $user) {
-            query('DELETE FROM favorites WHERE artwork_id=?', [$item['id']]);
-            query('DELETE FROM artwork_viewers WHERE artwork_id=?', [$item['id']]);
-            query('DELETE FROM artwork_overrides WHERE artwork_id=?', [$item['id']]);
-            query('DELETE FROM uploads WHERE id=?', [$item['id'] - UPLOAD_BASE]);
-            log_activity((int)$user['id'], 'Upload deleted', (string)$item['id']);
+        public_preview_change(function () use ($item, $user) {
+            public_preview_revoke((int)$item['id']);
+            with_write(function () use ($item, $user) {
+                query('DELETE FROM favorites WHERE artwork_id=?', [$item['id']]);
+                query('DELETE FROM artwork_viewers WHERE artwork_id=?', [$item['id']]);
+                query('DELETE FROM artwork_overrides WHERE artwork_id=?', [$item['id']]);
+                query('DELETE FROM uploads WHERE id=?', [$item['id'] - UPLOAD_BASE]);
+                log_activity((int)$user['id'], 'Upload deleted', (string)$item['id']);
+            });
         });
         foreach ($files as $file) {
             if ($file && !@unlink($file)) {
@@ -187,6 +191,7 @@ function handle_action(string $path, ?array $user, array $all): void
         $updated = all_artworks(apply_categories(catalogue()));
         $art = find_artwork($updated, UPLOAD_BASE + $id);
         if ($art) {
+            public_preview_publish((int)$art['id']);
             with_write(fn () => notification_enqueue_artwork($art));
             notification_schedule_delivery($updated);
         }
@@ -208,10 +213,21 @@ function handle_action(string $path, ?array $user, array $all): void
         if (!$item) {
             throw new DomainException('Artwork not found.');
         }
-        with_write(function () use ($item, $user) {
-            query('INSERT INTO artwork_overrides(artwork_id,title,description,category_id,software,tags,hidden) VALUES (?,?,?,?,?,?,?) ON CONFLICT(artwork_id) DO UPDATE SET hidden=1-artwork_overrides.hidden', [$item['id'], $item['title'], $item['description'] ?? '', $item['categoryId'], $item['software'] ?? 'bryce', $item['tags'] ?? '', 1]);
-            log_activity((int)$user['id'], 'Artwork visibility toggled', (string)$item['id']);
+        $wasHidden = public_preview_change(function () use ($item, $user): bool {
+            $hidden = (bool)query('SELECT hidden FROM artwork_overrides WHERE artwork_id=?', [$item['id']])->fetchColumn();
+            if (!$hidden) {
+                public_preview_revoke((int)$item['id']);
+            }
+            with_write(function () use ($item, $user) {
+                query('INSERT INTO artwork_overrides(artwork_id,title,description,category_id,software,tags,hidden) VALUES (?,?,?,?,?,?,?) ON CONFLICT(artwork_id) DO UPDATE SET hidden=1-artwork_overrides.hidden', [$item['id'], $item['title'], $item['description'] ?? '', $item['categoryId'], $item['software'] ?? 'bryce', $item['tags'] ?? '', 1]);
+                log_activity((int)$user['id'], 'Artwork visibility toggled', (string)$item['id']);
+            });
+
+            return $hidden;
         });
+        if ($wasHidden) {
+            public_preview_publish((int)$item['id']);
+        }
         redirect_to('/art/' . $item['id']);
     }
 }

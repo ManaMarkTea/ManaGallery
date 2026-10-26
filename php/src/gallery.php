@@ -32,6 +32,9 @@ function config(): array
     if ($media = getenv('RENDERGALLERY_PHP_MEDIA_ROOT')) {
         $settings['media_root'] = $media;
     }
+    if ($previews = getenv('RENDERGALLERY_PHP_PUBLIC_PREVIEW_DIRECTORY')) {
+        $settings['public_preview_directory'] = $previews;
+    }
 
     return $settings;
 }
@@ -132,6 +135,10 @@ function media_url(array $item, bool $full = false): string
 {
     if (empty($item['image']) && empty($item['fullImage'])) {
         return '/assets/placeholder.svg';
+    }
+
+    if (!$full && empty($item['hidden']) && empty($item['pending']) && isset($item['publicPreview']) && preg_match('~^/[A-Za-z0-9_/-]+/art-' . (int)$item['id'] . '-preview-[a-f0-9]{64}\.(jpg|png|webp|gif)$~D', $item['publicPreview'])) {
+        return $item['publicPreview'];
     }
 
     return '/media/' . (int)$item['id'] . ($full ? '/full' : '/preview');

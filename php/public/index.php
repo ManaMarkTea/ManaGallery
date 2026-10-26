@@ -16,6 +16,7 @@ if (!$mediaRequest) {
     require dirname(__DIR__) . '/src/comments.php';
     require dirname(__DIR__) . '/src/community.php';
     require dirname(__DIR__) . '/src/downloads.php';
+    require dirname(__DIR__) . '/src/public-previews.php';
     require dirname(__DIR__) . '/src/actions.php';
     require dirname(__DIR__) . '/src/legacy.php';
     require dirname(__DIR__) . '/src/analytics.php';

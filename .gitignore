@@ -39,3 +39,5 @@ server-backups/
 .private/
 **/inventory.local.*
 **/operations.local.*
+
+**/public/previews/

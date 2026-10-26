@@ -57,6 +57,7 @@ jobs:
       - run: php --ri sodium
       - run: php tests/accounts.php
       - run: php tests/comments.php
+      - run: php tests/public-previews.php
       - run: php tests/backups.php
       - run: php tests/drive-backup.php
       - run: php tests/notifications.php

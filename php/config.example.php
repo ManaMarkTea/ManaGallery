@@ -1,6 +1,9 @@
 <?php
 // Copy to config.local.php; all paths are private and outside public/.
 return [
+    // Optional static copies of published thumbnails; originals remain private.
+    'public_preview_directory' => '',
+    'public_preview_url' => '/previews',
     // Canonical HTTPS address for passkeys; use the same hostname permanently.
     // Local development on http://localhost works without this setting.
     'passkey_origin' => '',

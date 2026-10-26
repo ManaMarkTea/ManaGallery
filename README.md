@@ -29,6 +29,7 @@ VS Code dev container. Prefer a normal PHP installation? Use the
 - [Passkeys and signup email confirmation](php/docs/account-security.md)
 - [Email and Discord notifications](php/docs/comment-notifications.md)
 - [Direct Google Drive backups](php/docs/drive-backups.md)
+- [Static thumbnails](php/docs/static-previews.md)
 - [3D model previews](php/docs/models.md)
 - [Dependency licenses](THIRD_PARTY_NOTICES.md)
 

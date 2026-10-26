@@ -18,3 +18,5 @@ node_modules/
 *.tar.gz
 __pycache__/
 *.pyc
+
+/public/previews/

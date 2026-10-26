@@ -31,13 +31,13 @@ function uploaded_artwork(array $p): array
 }
 
 // Image requests need one record and its visibility, not gallery-wide view counts.
-function media_artwork(int $id, ?array $user): ?array
+function media_artwork(int $id, ?array $user, ?array $archive = null): ?array
 {
     if ($id >= UPLOAD_BASE) {
         $row = query('SELECT p.*,u.username FROM uploads p JOIN users u ON u.id=p.user_id WHERE p.id=?', [$id - UPLOAD_BASE])->fetch();
         $item = $row ? uploaded_artwork($row) : null;
     } else {
-        $item = find_artwork(catalogue(), $id);
+        $item = find_artwork($archive ?? catalogue(), $id);
     }
     if (!$item) {
         return null;
@@ -87,6 +87,17 @@ function all_artworks(array $archive): array
         $item['hidden'] = (bool)$edit['hidden'];
     }
     unset($item);
+
+    if (function_exists('public_preview_urls')) {
+        $publicPreviews = public_preview_urls();
+        foreach ($archive['items'] as &$item) {
+            unset($item['publicPreview']);
+            if (empty($item['hidden']) && empty($item['pending']) && isset($publicPreviews[(int)$item['id']])) {
+                $item['publicPreview'] = $publicPreviews[(int)$item['id']];
+            }
+        }
+        unset($item);
+    }
 
     return $archive;
 }
