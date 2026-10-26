@@ -29,6 +29,7 @@ The built-in server is for local development only. Stop it with Ctrl+C.
 - 24/48/96 images per page, direct page entry, first/last and +/-1/5/10 page navigation.
 - Full-tab image overlay, Escape and close-button dismissal.
 - Accounts: registration, password and passkey sign-in, password changes and optional signup email confirmation. See [account security](docs/account-security.md). Argon2id when available, bcrypt otherwise; cookie sessions, session rotation, CSRF checks and bounded login/registration throttles.
+- GLB 2.0 model uploads with automatic browser-rendered thumbnails and embedded textures. Models stay private until approval and download with SHA-256 checks. See [model uploads](docs/model-uploads.md).
 - JPEG/PNG/WebP upload decoding and WebP re-encoding, private originals and previews, 10 MiB / 16 megapixel / 12,000 pixel bounds. New uploads await approval; owners/admins can view pending images and edit details. Owners/admins can permanently delete uploaded artwork.
 - Admin review queue with quick per-member auto-upload toggles, approval, member access controls, local/UTC date display and activity log. Admins can edit archive metadata and hide artwork. Edits cannot override approval/moderation.
 - Default 1 GiB/member and 2 GiB/gallery upload limits, plus 2 GiB reserved disk space. Imported archive media is excluded from quotas. Quotas and registration/upload availability are editable under Admin > Settings.

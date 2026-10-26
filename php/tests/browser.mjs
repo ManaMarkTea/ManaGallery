@@ -172,7 +172,7 @@ try{
   await member.getByLabel('Title',{exact:true}).fill('My first artwork');
   await member.getByLabel('Category',{exact:true}).selectOption('1');
   await member.getByLabel('Software',{exact:true}).selectOption('blender');
-  await member.getByLabel('Artwork image',{exact:true}).setInputFiles({name:'art.png',mimeType:'image/png',buffer:png});
+  await member.getByLabel('Artwork file',{exact:true}).setInputFiles({name:'art.png',mimeType:'image/png',buffer:png});
   await member.getByRole('button',{name:'Submit for review',exact:true}).click();
   await member.waitForURL(/\/art\/[0-9]+$/);const artwork=member.url();
   const guest=await browser.newContext({baseURL:'http://127.0.0.1:8082'});
@@ -275,6 +275,47 @@ try{
   const deleteCsrf=await member.locator('input[name=csrf]').first().inputValue();
   assert.equal((await member.request.post(new URL(artwork).pathname+'/delete',{form:{csrf:deleteCsrf}})).status(),200);
   assert.equal((await guest.request.get(staticPath)).status(),404,'Deleted artwork has no public preview');
+  // A new model is rendered locally, stays private pending approval, and is
+  // downloaded with its original embedded geometry/materials intact.
+  const modelErrors=[];member.on('console',message=>{if(message.type()==='error' && /Content Security Policy|Couldn't load texture/.test(message.text()))modelErrors.push(message.text());});
+  const uploadedGLB=process.env.MANAGALLERY_TEST_GLB ? readFileSync(process.env.MANAGALLERY_TEST_GLB) : readFileSync(path.join(sourceRoot,'../samples/models/building-sheep.glb'));
+  await member.goto('/upload');
+  await member.getByLabel('Title',{exact:true}).fill('Fictional uploaded GLB');
+  await member.getByLabel('Category',{exact:true}).selectOption('1');
+  await member.getByLabel('Artwork file',{exact:true}).setInputFiles({name:'test-model.glb',mimeType:'model/gltf-binary',buffer:uploadedGLB});
+  await member.getByRole('status').filter({hasText:'Model thumbnail ready.'}).waitFor();
+  assert(await member.locator('[data-model-thumbnail-image]').isVisible());
+  await member.screenshot({path:path.join(output,'glb-upload-thumbnail.png'),fullPage:true});
+  await member.getByRole('button',{name:'Submit for review',exact:true}).click();
+  await member.waitForURL(/\/art\/[0-9]+$/);
+  const glbArtwork=new URL(member.url()).pathname,glbId=glbArtwork.split('/').pop();
+  assert.equal((await guest.request.get(glbArtwork)).status(),404);
+  const modelDownload='/download/'+glbId+'?format=glb';
+  const ownerDownload=await member.request.get(modelDownload);
+  assert.equal(ownerDownload.status(),200);assert.equal(ownerDownload.headers()['content-type'],'model/gltf-binary');
+  assert.deepEqual(await ownerDownload.body(),uploadedGLB);
+  await member.locator('[data-model-inline] [data-model-state="ready"]').waitFor();
+  await member.screenshot({path:path.join(output,'glb-upload-viewer.png')});
+  await page.goto('/admin');
+  await page.getByRole('button',{name:'Approve artwork',exact:true}).first().click();
+  const approvedModelPage=await guest.request.get(glbArtwork);assert.equal(approvedModelPage.status(),200);
+  const modelStatic=(await (await guest.request.get('/')).text()).match(new RegExp('src="(/previews/art-'+glbId+'-preview-[^\"]+)"'))[1];
+  assert.equal((await guest.request.get(modelStatic)).status(),200);
+  const modelVisibility={id:glbId,csrf:await page.locator('input[name=csrf]').first().inputValue()};
+  await page.request.post('/admin/visibility',{form:modelVisibility});
+  assert.equal((await guest.request.get(modelStatic)).status(),404);
+  assert.equal((await guest.request.get(modelDownload)).status(),404);
+  await page.request.post('/admin/visibility',{form:modelVisibility});
+  await member.goto(glbArtwork);const glbCsrf=await member.locator('input[name=csrf]').first().inputValue();
+  const hiddenModelBytes=await ownerDownload.body();
+  assert(hiddenModelBytes.length>0);
+  const deleteModel=await member.request.post(glbArtwork+'/delete',{form:{csrf:glbCsrf}});assert.equal(deleteModel.status(),200);
+  assert.equal((await guest.request.get(modelStatic)).status(),404);
+  assert.equal((await member.request.get(modelDownload)).status(),404);
+  assert.deepEqual(modelErrors,[],'Embedded textures and thumbnails must load without CSP or resource errors');
+  await member.goto('/upload');
+  const missingThumbnail=await member.request.post('/upload',{multipart:{csrf:await member.locator('input[name=csrf]').first().inputValue(),title:'Missing thumbnail',category:'1',software:'other',image:{name:'model.glb',mimeType:'model/gltf-binary',buffer:uploadedGLB}}});
+  assert.equal(missingThumbnail.status(),422);assert((await missingThumbnail.text()).includes('model needs a thumbnail'));
   const catalogueBeforeError=readFileSync(env.RENDERGALLERY_PHP_CATALOGUE);
   try {
     writeFileSync(env.RENDERGALLERY_PHP_CATALOGUE,'invalid fictional catalogue');

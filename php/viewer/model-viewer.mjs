@@ -1,5 +1,5 @@
-import { Scene, PerspectiveCamera, WebGLRenderer, Color, HemisphereLight, DirectionalLight, Box3, Vector3, LoadingManager, MeshBasicMaterial, MeshNormalMaterial, ShaderMaterial, DoubleSide } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Scene, PerspectiveCamera, WebGLRenderer, Color, HemisphereLight, DirectionalLight, Box3, Vector3, MeshBasicMaterial, MeshNormalMaterial, ShaderMaterial, DoubleSide } from 'three';
+import { loadEmbeddedGLB } from './embedded-glb.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Only same-origin, authenticated geometry derivatives are loaded.
@@ -44,7 +44,7 @@ export function createPreview(host,url,{interactive=false}={}) {
     host.dataset.modelMode=mode;
     if(mode==='uv' && !hasAttribute)return 'This model has no UV coordinates.';
     if(mode==='colors' && !hasAttribute)return 'This model has no vertex colors.';
-    return 'Drag to rotate. Scroll or pinch to zoom. External texture files are not included.';
+    return 'Drag to rotate. Scroll or pinch to zoom. Embedded textures are supported; linked files are not loaded.';
   };
   const ready=(async()=>{
     try{
@@ -60,8 +60,7 @@ export function createPreview(host,url,{interactive=false}={}) {
       const limit=25*1024*1024;
       if(Number(response.headers.get('Content-Length'))>limit)throw new Error('Model too large');
       const bytes=await response.arrayBuffer();if(bytes.byteLength>limit)throw new Error('Model too large');
-      const manager=new LoadingManager();manager.setURLModifier(()=>{throw new Error('External model resources are disabled');});
-      const gltf=await new GLTFLoader(manager).parseAsync(bytes,'');model=gltf.scene;
+      const gltf=await loadEmbeddedGLB(bytes);model=gltf.scene;
       if(disposed){model.traverse(node=>{
         node.geometry?.dispose();
         for(const material of Array.isArray(node.material)?node.material:[node.material])material?.dispose();
@@ -98,7 +97,7 @@ export function bindModelControls(container,preview){
   container.querySelector('[data-model-reset]').onclick=preview.reset;
   const select=container.querySelector('[data-model-mode]');
   select.value='materials';
-  container.querySelector('[data-model-info]').textContent='Drag to rotate. Scroll or pinch to zoom. External texture files are not included.';
+  container.querySelector('[data-model-info]').textContent='Drag to rotate. Scroll or pinch to zoom. Embedded textures are supported; linked files are not loaded.';
   select.onchange=()=>{container.querySelector('[data-model-info]').textContent=preview.setMode(select.value);};
 }
 

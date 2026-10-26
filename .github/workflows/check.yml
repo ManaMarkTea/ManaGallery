@@ -54,6 +54,7 @@ jobs:
       - run: composer format:check
       - run: find src templates public tests scripts -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: php tests/gallery.php
+      - run: php tests/glb.php
       - run: php --ri sodium
       - run: php tests/accounts.php
       - run: php tests/comments.php

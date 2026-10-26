@@ -32,7 +32,7 @@ $requestId = bin2hex(random_bytes(8));
 header('X-Gallery-Request-ID: ' . $requestId);
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' blob:; img-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Cache-Control: private, no-store');
 $postRoutes = ['/register', '/login', '/logout', '/upload', '/account/password', '/admin/approve', '/admin/trust', '/admin/disable', '/admin/visibility', '/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/comment', '/comment/delete', '/favorite'];
 $adminPages = ['/admin', '/admin/review', '/admin/users', '/admin/artworks', '/admin/comments', '/admin/categories', '/admin/settings', '/admin/activity', '/admin/health'];
@@ -130,7 +130,7 @@ try {
             $formError = $error->getMessage();
         }
     }
-    if (preg_match('~^/download/([1-9][0-9]{0,8})$~D', $path, $matches)) {
+    if (preg_match('~^/download/([1-9][0-9]{0,9})$~D', $path, $matches)) {
         $item = find_artwork($all, (int)$matches[1]);
         $format = param($_GET, 'format', 'original');
         if (!$item || !can_view($user, $item) || !attachment_info((int)$item['id'], $format)) {
@@ -175,7 +175,7 @@ try {
     }));
     $analytics = analytics_configuration($path, $user, $notFound);
     if ($analytics) {
-        header("Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; connect-src 'self' blob: https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' blob: https://*.google-analytics.com https://*.googletagmanager.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     }
     $notice = $_SESSION['notice'] ?? '';
     unset($_SESSION['notice']);

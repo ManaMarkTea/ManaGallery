@@ -169,14 +169,25 @@ function store_upload(array $user, array $data): int
     $fields = artwork_fields($data, $_POST);
     $upload = $_FILES['image'] ?? null;
     if (!$upload || !is_int($upload['error'] ?? null) || $upload['error'] !== UPLOAD_ERR_OK) {
-        throw new DomainException('Choose an image up to 10 MiB. Check the server upload limit if the file is smaller.');
+        throw new DomainException('Choose an image or GLB model up to 10 MiB. Check the server upload limit if the file is smaller.');
     }
     if (!is_string($upload['tmp_name']) || !is_uploaded_file($upload['tmp_name'])) {
         throw new DomainException('Invalid uploaded file.');
     }
     $size = filesize($upload['tmp_name']);
     if (!$size || $size > 10 * 1024 * 1024) {
-        throw new DomainException('Images must be no larger than 10 MiB.');
+        throw new DomainException('Uploads must be no larger than 10 MiB.');
+    }
+    $model = null;
+    if (strtolower(pathinfo($upload['name'] ?? '', PATHINFO_EXTENSION)) === 'glb') {
+        require_once __DIR__ . '/glb.php';
+        $modelBytes = file_get_contents($upload['tmp_name']);
+        validate_glb($modelBytes);
+        $model = ['bytes' => $modelBytes, 'name' => mb_substr(basename(str_replace('\\', '/', $upload['name'])), 0, 160)];
+        $upload = $_FILES['modelPreview'] ?? null;
+        if (!$upload || ($upload['error'] ?? null) !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'] ?? '') || filesize($upload['tmp_name']) > 2097152) {
+            throw new DomainException('The model needs a thumbnail. Wait for the automatic preview, or choose a thumbnail image.');
+        }
     }
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
     $info = @getimagesize($upload['tmp_name']);
@@ -209,9 +220,19 @@ function store_upload(array $user, array $data): int
         if (!$small || !imagewebp($small, $thumb, 80)) {
             throw new RuntimeException('Cannot encode preview');
         }
-        $bytes = fstat($full)['size'] + fstat($thumb)['size'];
+        $bytes = fstat($full)['size'] + fstat($thumb)['size'] + ($model ? strlen($model['bytes']) : 0);
+        $buffers = [$filename => $full, $preview => $thumb];
+        $modelFilename = '';
+        if ($model) {
+            $modelBuffer = tmpfile();
+            if (!$modelBuffer || fwrite($modelBuffer, $model['bytes']) !== strlen($model['bytes'])) {
+                throw new RuntimeException('Cannot stage model');
+            }
+            $modelFilename = bin2hex(random_bytes(20)) . '.glb';
+            $buffers[$modelFilename] = $modelBuffer;
+        }
 
-        return with_write(function () use ($user, $fields, $dir, $filename, $preview, $full, $thumb, $bytes, &$written) {
+        return with_write(function () use ($user, $fields, $dir, $filename, $preview, $buffers, $model, $modelFilename, $bytes, &$written) {
             $fresh = query('SELECT disabled,auto_approve FROM users WHERE id=?', [$user['id']])->fetch();
             if (!$fresh || $fresh['disabled']) {
                 throw new DomainException('This account is inactive.');
@@ -226,7 +247,7 @@ function store_upload(array $user, array $data): int
                 }
             }
             validate_storage_budget(upload_usage((int)$user['id']), $stored, $bytes, disk_free_space($dir));
-            foreach ([$filename => $full, $preview => $thumb] as $name => $buffer) {
+            foreach ($buffers as $name => $buffer) {
                 $target = $dir . '/' . $name;
                 $handle = fopen($target, 'xb');
                 if (!$handle) {
@@ -245,6 +266,9 @@ function store_upload(array $user, array $data): int
             }
             query('INSERT INTO uploads(user_id,title,description,category_id,software,tags,filename,preview,bytes,approved,created) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [$user['id'], ...$fields, $filename, $preview, $bytes, (int)(bool)$fresh['auto_approve'], gmdate('Y-m-d H:i:s')]);
             $id = (int)database()->lastInsertId();
+            if ($model) {
+                query('INSERT INTO upload_models(upload_id,filename,original_name,bytes,sha256) VALUES (?,?,?,?,?)', [$id, $modelFilename, $model['name'], strlen($model['bytes']), hash('sha256', $model['bytes'])]);
+            }
             log_activity((int)$user['id'], 'Upload submitted', (string)(UPLOAD_BASE + $id));
 
             return UPLOAD_BASE + $id;
@@ -254,6 +278,9 @@ function store_upload(array $user, array $data): int
             @unlink($file);
         } throw $error;
     } finally {
+        if (isset($modelBuffer) && is_resource($modelBuffer)) {
+            fclose($modelBuffer);
+        }
         if (isset($full) && is_resource($full)) {
             fclose($full);
         } if (isset($thumb) && is_resource($thumb)) {

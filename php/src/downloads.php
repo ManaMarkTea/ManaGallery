@@ -20,6 +20,14 @@ function attachment_catalogue(string $folder, bool $preview = false): array
 }
 function attachment_info(int $id, string $format = 'original'): ?array
 {
+    if ($id >= UPLOAD_BASE && in_array($format, ['original', 'glb'], true)) {
+        $model = query('SELECT * FROM upload_models WHERE upload_id=?', [$id - UPLOAD_BASE])->fetch();
+        if (!$model || !preg_match('/^[a-f0-9]{40}\.glb$/D', $model['filename'])) {
+            return null;
+        }
+
+        return ['name' => $model['original_name'], 'bytes' => (int)$model['bytes'], 'sha256' => $model['sha256'], 'file' => upload_directory() . '/' . $model['filename'], 'extension' => '.glb', 'model' => true, 'nativeGlb' => true];
+    }
     if ($id < 1 || $id >= UPLOAD_BASE || !in_array($format, ['original', 'glb'], true)) {
         return null;
     }
@@ -79,7 +87,7 @@ function serve_attachment(array $item, array $user, string $format, string $meth
     }
     rewind($handle);
     session_write_close();
-    header('Content-Type: ' . ($format === 'glb' ? 'model/gltf-binary' : 'application/octet-stream'));
+    header('Content-Type: ' . ($info['extension'] === '.glb' ? 'model/gltf-binary' : 'application/octet-stream'));
     header('Content-Length: ' . $size);
     header("Content-Disposition: attachment; filename=\"" . ($info['model'] ? 'model' : 'material') . '-' . $item['id'] . $info['extension'] . "\"; filename*=UTF-8''" . rawurlencode($info['name']));
     header('Cache-Control: private, no-store');

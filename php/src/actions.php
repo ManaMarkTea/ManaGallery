@@ -157,6 +157,10 @@ function handle_action(string $path, ?array $user, array $all): void
             exit('Artwork not found');
         }
         $files = [uploaded_media($item, true), uploaded_media($item, false)];
+        $modelFile = attachment_info((int)$item['id']);
+        if ($modelFile && !is_link($modelFile['file'])) {
+            $files[] = $modelFile['file'];
+        }
         public_preview_change(function () use ($item, $user) {
             public_preview_revoke((int)$item['id']);
             with_write(function () use ($item, $user) {

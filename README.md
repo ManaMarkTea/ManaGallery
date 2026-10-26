@@ -38,3 +38,5 @@ Only `php/public/` belongs in a web server's public document root.
 
 The old Next.js version is [archived separately](https://github.com/ManaMarkTea/ManaGallery-Nextjs)
 and is no longer maintained.
+
+Try model uploads with the included [CC0 sheep model](samples/models/README.md).

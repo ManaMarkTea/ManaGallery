@@ -47,6 +47,9 @@ function database(): PDO
         description TEXT NOT NULL, category_id INTEGER NOT NULL, software TEXT NOT NULL, tags TEXT NOT NULL DEFAULT '',
         filename TEXT NOT NULL UNIQUE, preview TEXT NOT NULL UNIQUE, bytes INTEGER NOT NULL,
         approved INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS upload_models (
+        upload_id INTEGER PRIMARY KEY REFERENCES uploads(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL UNIQUE, original_name TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS artwork_overrides (
         artwork_id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, category_id INTEGER NOT NULL,
         software TEXT NOT NULL, tags TEXT NOT NULL DEFAULT '', hidden INTEGER NOT NULL DEFAULT 0);
