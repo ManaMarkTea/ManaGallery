@@ -1092,3 +1092,5 @@
 .admin-shell .category-help { font-size:12px; margin:10px 0 16px; }
 .category-save-status { margin:0; font-size:12px; }
 .category-save-status[data-error] { color:#a02739; }
+
+.category-hidden-icon { display:inline-flex; vertical-align:middle; margin-left:6px; color:#64748b; }
