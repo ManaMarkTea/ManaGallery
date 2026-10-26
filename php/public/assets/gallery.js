@@ -1,8 +1,9 @@
 "use strict";
 let modelModule,hoverModel,hoverCard,modelRequest=0;
 function modelTools(){
-  const version=new URL(document.querySelector('script[src*="/assets/gallery.js"]').src).search;
-  return modelModule??=import('./model-viewer.js'+version);
+  const script=document.querySelector('script[src*="/assets/gallery.js"]');
+  const source=script.dataset.modelViewerSrc || './model-viewer.js'+new URL(script.src).search;
+  return modelModule??=import(source);
 }
 function stopModelHover(){modelRequest++;hoverModel?.dispose();hoverModel=null;hoverCard=null;}
 function startModelHover(card){
