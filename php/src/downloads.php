@@ -18,6 +18,25 @@ function attachment_catalogue(string $folder, bool $preview = false): array
 
     return $data['entries'];
 }
+function model_preview_ids(array $items): array
+{
+    $previews = attachment_catalogue('models', true);
+    $uploads = [];
+    foreach ($items as $item) {
+        if ((int)$item['id'] >= UPLOAD_BASE) {
+            $uploads[] = (int)$item['id'] - UPLOAD_BASE;
+        }
+    }
+    if ($uploads) {
+        $placeholders = implode(',', array_fill(0, count($uploads), '?'));
+        foreach (query('SELECT upload_id FROM upload_models WHERE upload_id IN (' . $placeholders . ')', $uploads) as $row) {
+            $previews[(string)(UPLOAD_BASE + (int)$row['upload_id'])] = true;
+        }
+    }
+
+    return $previews;
+}
+
 function attachment_info(int $id, string $format = 'original'): ?array
 {
     if ($id >= UPLOAD_BASE && in_array($format, ['original', 'glb'], true)) {

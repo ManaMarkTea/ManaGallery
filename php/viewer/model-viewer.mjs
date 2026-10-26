@@ -7,6 +7,7 @@ export function createPreview(host,url,{interactive=false}={}) {
   if(!/^\/download\/[1-9][0-9]*\?format=glb$/.test(url))throw new Error('Invalid model URL');
   let renderer,controls,model,observer,frame,disposed=false;
   const originalMaterials=new Map(),debugMaterials=new Map(),materials=new Set();
+  const texturedMaterials=new Map(),wireOverlays=new Map();
   const abort=new AbortController();
   const status=document.createElement('p');status.className='model-status';status.textContent='Loading 3D preview...';
   host.append(status);host.dataset.modelState='loading';
@@ -22,8 +23,8 @@ export function createPreview(host,url,{interactive=false}={}) {
     status.remove();delete host.dataset.modelState;
   };
   const setMode=mode=>{
-    if(!model || !['materials','wireframe','normals','uv','colors'].includes(mode))return '';
-    if(mode!=='materials' && !debugMaterials.has(mode)){
+    if(!model || !['materials','textured-wireframe','wireframe','normals','uv','colors'].includes(mode))return '';
+    if(mode!=='materials' && mode!=='textured-wireframe' && !debugMaterials.has(mode)){
       let material;
       if(mode==='wireframe')material=new MeshBasicMaterial({color:0xb9d9f5,wireframe:true,side:DoubleSide});
       if(mode==='normals')material=new MeshNormalMaterial({side:DoubleSide});
@@ -36,11 +37,25 @@ export function createPreview(host,url,{interactive=false}={}) {
       debugMaterials.set(mode,material);materials.add(material);
     }
     let hasAttribute=false;
-    model.traverse(node=>{
-      if(!node.isMesh)return;
-      node.material=mode==='materials'?originalMaterials.get(node):debugMaterials.get(mode);
+    for(const [node,original] of originalMaterials){
+      if(mode==='textured-wireframe' && !wireOverlays.has(node)){
+        const offsetMaterial=material=>{
+          const copy=material.clone();copy.polygonOffset=true;copy.polygonOffsetFactor=1;copy.polygonOffsetUnits=1;
+          materials.add(copy);return copy;
+        };
+        texturedMaterials.set(node,Array.isArray(original)?original.map(offsetMaterial):offsetMaterial(original));
+        const wire=new MeshBasicMaterial({color:0x07111b,wireframe:true,transparent:true,opacity:0.8,depthWrite:false,side:DoubleSide});
+        materials.add(wire);
+        // Reuse the mesh type so skinning, morph targets and instances line up.
+        const overlay=node.clone(false);overlay.material=wire;
+        overlay.position.set(0,0,0);overlay.quaternion.identity();overlay.scale.set(1,1,1);overlay.matrix.identity();
+        overlay.morphTargetInfluences=node.morphTargetInfluences;overlay.renderOrder=node.renderOrder+1;
+        node.add(overlay);wireOverlays.set(node,overlay);
+      }
+      node.material=mode==='materials'?original:mode==='textured-wireframe'?texturedMaterials.get(node):debugMaterials.get(mode);
+      const overlay=wireOverlays.get(node);if(overlay)overlay.visible=mode==='textured-wireframe';
       if(node.geometry.hasAttribute(mode==='uv'?'uv':'color'))hasAttribute=true;
-    });
+    }
     host.dataset.modelMode=mode;
     if(mode==='uv' && !hasAttribute)return 'This model has no UV coordinates.';
     if(mode==='colors' && !hasAttribute)return 'This model has no vertex colors.';
@@ -80,7 +95,7 @@ export function createPreview(host,url,{interactive=false}={}) {
       const resize=()=>{const width=Math.max(host.clientWidth,1),height=Math.max(host.clientHeight,1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
       observer=new ResizeObserver(resize);observer.observe(host);resize();
       status.textContent='';status.hidden=true;host.dataset.modelState='ready';
-      host.dataset.modelMode='materials';
+      setMode(interactive?'materials':'textured-wireframe');
       const render=()=>{if(disposed)return;if(!host.isConnected){dispose();return;}controls.update();renderer.render(scene,camera);frame=requestAnimationFrame(render);};render();
     }catch(error){
       if(disposed)return;

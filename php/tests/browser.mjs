@@ -258,12 +258,13 @@ try{
   await page.goto('http://127.0.0.1:8082/art/42');
   await page.locator('[data-model-inline] [data-model-state="ready"]').waitFor();
   assert.equal(await page.locator('[data-image-open]').isVisible(),false);
-  for(const mode of ['wireframe','normals','uv','colors','materials']) {
+  for(const mode of ['textured-wireframe','wireframe','normals','uv','colors','materials']) {
     await page.getByLabel('Model display mode',{exact:true}).selectOption(mode);
     assert.equal(await page.locator('[data-model-inline] [data-model-stage]').getAttribute('data-model-mode'),mode);
   }
   await page.getByRole('button',{name:'View 3D model',exact:true}).click();
   await page.locator('#model-viewer [data-model-state="ready"]').waitFor();
+  assert.equal(await page.locator('#model-viewer [data-model-stage]').getAttribute('data-model-mode'),'materials','Expanded viewer defaults to original materials');
   await page.locator('#model-viewer').getByRole('button',{name:'Reset view',exact:true}).click();
   await page.screenshot({path:path.join(output,'model-viewer.png')});
   await page.keyboard.press('Escape');assert.equal(await page.locator('#model-viewer').isVisible(),false);
@@ -295,12 +296,28 @@ try{
   assert.equal(ownerDownload.status(),200);assert.equal(ownerDownload.headers()['content-type'],'model/gltf-binary');
   assert.deepEqual(await ownerDownload.body(),uploadedGLB);
   await member.locator('[data-model-inline] [data-model-state="ready"]').waitFor();
+  assert.equal(await member.locator('[data-model-inline] [data-model-stage]').getAttribute('data-model-mode'),'materials','Detail viewer defaults to original materials');
   await member.screenshot({path:path.join(output,'glb-upload-viewer.png')});
+  const texturedCanvas=member.locator('[data-model-inline] canvas');
+  const materialPixels=await texturedCanvas.screenshot();
+  await member.getByLabel('Model display mode',{exact:true}).selectOption('textured-wireframe');
+  const wirePixels=await texturedCanvas.screenshot();
+  assert.notDeepEqual(wirePixels,materialPixels,'Textured wireframe draws visible edges over the original materials');
+  await member.screenshot({path:path.join(output,'textured-wireframe.png')});
+  await member.getByLabel('Model display mode',{exact:true}).selectOption('materials');
+  assert.deepEqual(await texturedCanvas.screenshot(),materialPixels,'Leaving textured wireframe restores the original material rendering');
+
   await page.goto('/admin');
   await page.getByRole('button',{name:'Approve artwork',exact:true}).first().click();
   const approvedModelPage=await guest.request.get(glbArtwork);assert.equal(approvedModelPage.status(),200);
   const modelStatic=(await (await guest.request.get('/')).text()).match(new RegExp('src="(/previews/art-'+glbId+'-preview-[^\"]+)"'))[1];
   assert.equal((await guest.request.get(modelStatic)).status(),200);
+  await member.goto('/?q=Fictional+uploaded+GLB');
+  const uploadedModelCard=member.locator('a.art-card[href="'+glbArtwork+'"]');
+  assert.equal(await uploadedModelCard.getAttribute('data-model-preview'),modelDownload);
+  await uploadedModelCard.hover();await uploadedModelCard.locator('[data-model-state="ready"]').waitFor();
+  assert.equal(await uploadedModelCard.locator('[data-model-state="ready"]').getAttribute('data-model-mode'),'textured-wireframe','GLB hover previews default to textured wireframe');
+  await member.mouse.move(0,0);await uploadedModelCard.locator('canvas').waitFor({state:'detached'});
   const modelVisibility={id:glbId,csrf:await page.locator('input[name=csrf]').first().inputValue()};
   await page.request.post('/admin/visibility',{form:modelVisibility});
   assert.equal((await guest.request.get(modelStatic)).status(),404);

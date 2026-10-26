@@ -14,7 +14,11 @@ The original model and generated images are saved in private upload storage.
 The model counts toward the member and gallery quotas. Approval, hiding and
 deletion work like image uploads. Approved thumbnails can be served as static
 files; models are downloaded through the authenticated, moderated download route.
-The interactive viewer preserves embedded textures and materials.
+The interactive viewer preserves embedded textures and materials. Choose
+**Textured wireframe** to overlay triangle edges while keeping those materials.
+Signed-in visitors can also hover over GLB gallery thumbnails to rotate them.
+Hover previews start in textured wireframe; artwork and expanded viewers start
+in Materials mode.
 
 No extra hosting service is needed. Browser rendering uses the bundled Three.js
 code. Rebuild the two bundles after changing viewer source:
