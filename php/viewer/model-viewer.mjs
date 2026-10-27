@@ -92,7 +92,42 @@ export function createPreview(host,url,{interactive=false}={}) {
       const radius=Math.max(size.length()/2,0.01),distance=radius/Math.sin(camera.fov*Math.PI/360)*1.15;
       initial.set(1.2,0.8,1.6).normalize().multiplyScalar(distance);camera.near=radius/100;camera.far=radius*100;
       controls.minDistance=radius*0.15;controls.maxDistance=radius*20;reset();
-      const resize=()=>{const width=Math.max(host.clientWidth,1),height=Math.max(host.clientHeight,1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
+      let hoverRadius=Math.hypot(size.x,size.z)/2;
+      if(!interactive){
+        // Use the mesh's real footprint, rather than empty bounding-box corners.
+        let footprint=0,hasInstances=false;
+        const point=new Vector3();model.updateMatrixWorld(true);
+        model.traverse(node=>{
+          if(!node.isMesh)return;
+          if(node.isInstancedMesh){hasInstances=true;return;}
+          node.skeleton?.update();
+          const count=node.geometry.getAttribute('position')?.count??0;
+          for(let i=0;i<count;i++){
+            node.getVertexPosition(i,point).applyMatrix4(node.matrixWorld);
+            footprint=Math.max(footprint,Math.hypot(point.x,point.z));
+          }
+        });
+        if(!hasInstances && footprint>0)hoverRadius=footprint;
+      }
+
+      const resize=()=>{
+        const width=Math.max(host.clientWidth,1),height=Math.max(host.clientHeight,1);
+        renderer.setSize(width,height,false);camera.aspect=width/height;
+        if(!interactive){
+          // Fit the projected bounds to this thumbnail's actual aspect ratio.
+          // The detail viewer retains its original framing and user zoom.
+          const direction=new Vector3(1.2,0.8,1.6).normalize();
+          const tangent=Math.tan(camera.fov*Math.PI/360);
+          const elevation=direction.y,level=Math.hypot(direction.x,direction.z),halfHeight=size.y/2;
+          // Fit a rotating footprint inside both camera angles, with a small margin.
+          const horizontal=hoverRadius*Math.hypot(level,1/(tangent*camera.aspect))+halfHeight*elevation;
+          const upper=hoverRadius*Math.abs(level-elevation/tangent)+halfHeight*(elevation+level/tangent);
+          const lower=hoverRadius*(level+elevation/tangent)+halfHeight*Math.abs(elevation-level/tangent);
+          const fit=Math.max(radius*0.1,horizontal,upper,lower)*1.08;
+          initial.copy(direction).multiplyScalar(fit);reset();
+        }
+        camera.updateProjectionMatrix();
+      };
       observer=new ResizeObserver(resize);observer.observe(host);resize();
       status.textContent='';status.hidden=true;host.dataset.modelState='ready';
       setMode(interactive?'materials':'textured-wireframe');

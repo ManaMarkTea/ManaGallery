@@ -332,6 +332,7 @@ try{
   assert.equal(await uploadedModelCard.getAttribute('data-model-preview'),modelDownload);
   await uploadedModelCard.hover();await uploadedModelCard.locator('[data-model-state="ready"]').waitFor();
   assert.equal(await uploadedModelCard.locator('[data-model-state="ready"]').getAttribute('data-model-mode'),'textured-wireframe','GLB hover previews default to textured wireframe');
+  await uploadedModelCard.screenshot({path:path.join(output,'glb-hover-framing.png')});
   await member.mouse.move(0,0);await uploadedModelCard.locator('canvas').waitFor({state:'detached'});
   const modelVisibility={id:glbId,csrf:await page.locator('input[name=csrf]').first().inputValue()};
   await page.request.post('/admin/visibility',{form:modelVisibility});
