@@ -254,7 +254,8 @@ try{
   writeFileSync(path.join(modelFolder,'catalogue.json'),JSON.stringify({version:1,entries:{42:{name:'Triangle.3ds',bytes:original.length,sha256:sha(original)}}}));
   writeFileSync(path.join(modelFolder,'previews.json'),JSON.stringify({version:1,geometryOnly:true,entries:{42:{bytes:model.length,sha256:sha(model),sourceSha256:sha(original)}}}));
   writeFileSync(env.RENDERGALLERY_PHP_CATALOGUE,JSON.stringify({items:[{id:42,title:'Fictional triangle',author:'Fixture artist',categoryId:1,software:'other',image:'',fullImage:'',date:'2026-01-01'}],categories:[{id:1,name:'Community art'}]}));
-  assert.equal((await guest.request.get('http://127.0.0.1:8082/download/42?format=glb',{maxRedirects:0})).status(),303);
+  assert.equal((await guest.request.get('http://127.0.0.1:8082/download/42?format=glb',{maxRedirects:0})).status(),200);
+  assert.equal((await guest.request.get('http://127.0.0.1:8082/download/42',{maxRedirects:0})).status(),303);
   await page.goto('http://127.0.0.1:8082/art/42');
   await page.locator('[data-model-inline] [data-model-state="ready"]').waitFor();
   assert.equal(await page.locator('[data-image-open]').isVisible(),false);
@@ -291,6 +292,7 @@ try{
   await member.waitForURL(/\/art\/[0-9]+$/);
   const glbArtwork=new URL(member.url()).pathname,glbId=glbArtwork.split('/').pop();
   assert.equal((await guest.request.get(glbArtwork)).status(),404);
+  assert.equal((await guest.request.get('/download/'+glbId+'?format=glb')).status(),404);
   const modelDownload='/download/'+glbId+'?format=glb';
   const ownerDownload=await member.request.get(modelDownload);
   assert.equal(ownerDownload.status(),200);assert.equal(ownerDownload.headers()['content-type'],'model/gltf-binary');
@@ -312,6 +314,19 @@ try{
   const approvedModelPage=await guest.request.get(glbArtwork);assert.equal(approvedModelPage.status(),200);
   const modelStatic=(await (await guest.request.get('/')).text()).match(new RegExp('src="(/previews/art-'+glbId+'-preview-[^\"]+)"'))[1];
   assert.equal((await guest.request.get(modelStatic)).status(),200);
+  const guestModelPage=await guest.newPage();
+  await guestModelPage.goto(glbArtwork);
+  await guestModelPage.locator('[data-model-inline] [data-model-state="ready"]').waitFor();
+  assert.equal(await guestModelPage.locator('[data-model-inline] [data-model-stage]').getAttribute('data-model-mode'),'materials');
+  await guestModelPage.locator('[data-model-inline] [data-model-open]').click();
+  await guestModelPage.locator('#model-viewer [data-model-state="ready"]').waitFor();
+  await guestModelPage.keyboard.press('Escape');
+  await guestModelPage.goto('/?q=Fictional+uploaded+GLB');
+  const guestModelCard=guestModelPage.locator('a.art-card[href="'+glbArtwork+'"]');
+  await guestModelCard.hover();await guestModelCard.locator('[data-model-state="ready"]').waitFor();
+  assert.equal(await guestModelCard.locator('[data-model-state="ready"]').getAttribute('data-model-mode'),'textured-wireframe');
+  await guestModelPage.close();
+
   await member.goto('/?q=Fictional+uploaded+GLB');
   const uploadedModelCard=member.locator('a.art-card[href="'+glbArtwork+'"]');
   assert.equal(await uploadedModelCard.getAttribute('data-model-preview'),modelDownload);

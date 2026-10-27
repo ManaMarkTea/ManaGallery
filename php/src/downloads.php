@@ -75,7 +75,7 @@ function attachment_info(int $id, string $format = 'original'): ?array
 
     return ['name' => $meta['name'], 'bytes' => $meta['bytes'], 'sha256' => $meta['sha256'], 'file' => private_directory() . '/attachments/' . $folder . '/' . $id . $extension, 'extension' => $extension, 'model' => (bool)$model];
 }
-function serve_attachment(array $item, array $user, string $format, string $method): never
+function serve_attachment(array $item, ?array $user, string $format, string $method): never
 {
     $info = attachment_info((int)$item['id'], $format);
     if (!$info) {

@@ -137,10 +137,10 @@ try {
             http_response_code(404);
             exit('Download not available');
         }
-        if (!$user) {
+        if (!$user && $format !== 'glb') {
             redirect_to('/login?next=' . rawurlencode('/art/' . $item['id']));
         }
-        if (account_needs_verification($user)) {
+        if ($format !== 'glb' && account_needs_verification($user)) {
             $_SESSION['notice'] = 'Confirm your email before downloading.';
             redirect_to('/account');
         }

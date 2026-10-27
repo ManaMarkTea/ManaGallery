@@ -36,7 +36,7 @@ The built-in server is for local development only. Stop it with Ctrl+C.
 - Escaped output, CSP, private storage and database outside the document root, media MIME/path/visibility checks. Published thumbnails use a private five-minute browser cache. Pending, hidden and full-size images are not cached. A thumbnail already viewed can remain cached for up to five minutes after being hidden; revalidation checks access again.
 - Unique views counted server-side once per account or anonymous browser, without view IP storage. Signing in merges anonymous visits instead of counting them twice; legacy hits remain separate and unverified.
 - Favorites with private account collections, verified owned-archive collection and artist gallery filtering. All collections paginate, and hidden artwork respects ownership/admin access.
-- Member-only private `.MAT`, `.3DS` and geometry-only `.GLB` downloads with file-size/SHA-256 validation and moderation checks.
+- Public GLB viewing with file-size/SHA-256 validation and moderation checks. Original `.MAT` and `.3DS` downloads require sign-in.
 - Imported archived comments, new comments and admin moderation with profanity/spam/untrusted-link filtering.
 
 ## Current limits

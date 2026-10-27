@@ -13,10 +13,12 @@ Linked files and external URLs are rejected; export textures inside the GLB.
 The original model and generated images are saved in private upload storage.
 The model counts toward the member and gallery quotas. Approval, hiding and
 deletion work like image uploads. Approved thumbnails can be served as static
-files; models are downloaded through the authenticated, moderated download route.
+files; models are served through the moderated download route. Public GLB previews
+are available to signed-out visitors; pending and hidden models remain private.
+Original legacy 3DS and material downloads still require sign-in.
 The interactive viewer preserves embedded textures and materials. Choose
 **Textured wireframe** to overlay triangle edges while keeping those materials.
-Signed-in visitors can also hover over GLB gallery thumbnails to rotate them.
+Visitors can also hover over GLB gallery thumbnails to rotate them.
 Hover previews start in textured wireframe; artwork and expanded viewers start
 in Materials mode.
 
