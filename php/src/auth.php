@@ -12,6 +12,11 @@ function start_session(bool $readOnly = false): void
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');
     ini_set('session.gc_maxlifetime', '1209600');
+    // Many shared hosts ship gc_probability=0 and rely on a system cron that
+    // only cleans the default save path, so expired files in this private
+    // directory are never removed. Run PHP's own cleanup on ~1% of requests.
+    ini_set('session.gc_probability', '1');
+    ini_set('session.gc_divisor', '100');
     session_save_path($directory);
     session_name('rendergallery_php_session');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
