@@ -10,10 +10,13 @@ umask(0077);
 $release = realpath($argv[1] ?? '');
 $app = realpath($argv[2] ?? '');
 $public = realpath($argv[3] ?? '');
-if (!$release || !$app || !$public || !is_dir($release) || !is_file($app . '/public/index.php') || !is_dir($public)) {
-    throw new RuntimeException('Usage: deploy-shared-host.php PRIVATE_RELEASE PRIVATE_APP PUBLIC_ROOT');
+// Optional private directory holding the command-line backup tools.
+$tools = isset($argv[4]) ? realpath($argv[4]) : null;
+if (!$release || !$app || !$public || !is_dir($release) || !is_file($app . '/public/index.php') || !is_dir($public)
+    || $tools === false || ($tools !== null && !is_dir($tools . '/scripts'))) {
+    throw new RuntimeException('Usage: deploy-shared-host.php PRIVATE_RELEASE PRIVATE_APP PUBLIC_ROOT [PRIVATE_BACKUP_TOOLS]');
 }
-foreach ([$app, $release] as $private) {
+foreach (array_filter([$app, $release, $tools]) as $private) {
     if ($private === $public || str_starts_with($private, $public . '/')) {
         throw new RuntimeException('Application and release must remain outside the public root.');
     }
@@ -29,11 +32,14 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 $prepared = [];
 foreach ($manifest['files'] as $entry) {
     $path = $entry['path'];
-    if (!preg_match('~^(?:src/[a-z-]+\.(?:php|json)|templates/[a-z-]+\.php|public/index\.php|public/assets/[a-zA-Z0-9._-]+)$~D', $path) || str_contains($path, '..')) {
+    if (!preg_match('~^(?:src/[a-z-]+\.(?:php|json)|templates/[a-z-]+\.php|public/index\.php|public/assets/[a-zA-Z0-9._-]+|backup-tools/(?:scripts|src)/[a-z-]+\.php)$~D', $path) || str_contains($path, '..')) {
         throw new RuntimeException('Disallowed update path.');
     }
+    if (str_starts_with($path, 'backup-tools/') && $tools === null) {
+        continue;
+    }
     $staged = $release . '/' . $path;
-    $target = $app . '/' . $path;
+    $target = str_starts_with($path, 'backup-tools/') ? $tools . '/' . substr($path, strlen('backup-tools/')) : $app . '/' . $path;
     if (!is_file($staged) || is_link($staged) || hash_file('sha256', $staged) !== $entry['after']) {
         throw new RuntimeException('Staged checksum mismatch: ' . $path);
     }
@@ -46,14 +52,17 @@ foreach ($manifest['files'] as $entry) {
         $targets[] = $public . '/assets/' . basename($path);
     }
     foreach ($targets as $destination) {
-        if (is_link($destination) || (file_exists($destination) && !is_file($destination))) {
-            throw new RuntimeException('Unsafe target: ' . $path);
+        if (is_link($destination) || (file_exists($destination) && !is_file($destination)) || !is_dir(dirname($destination))) {
+            throw new RuntimeException('Unsafe or missing target directory: ' . $path);
         }
         $before = is_file($destination) ? file_get_contents($destination) : null;
         if ($before !== null && hash('sha256', $before) === $entry['after']) {
             continue;
         }
-        if ($before === null ? $entry['beforeNormalized'] !== null : hash('sha256', str_replace("\r\n", "\n", $before)) !== $entry['beforeNormalized']) {
+        // Releases built from Git use replace=any: the current copy is kept for
+        // rollback but need not match a reviewed earlier version.
+        if (($entry['replace'] ?? null) !== 'any'
+            && ($before === null ? $entry['beforeNormalized'] !== null : hash('sha256', str_replace("\r\n", "\n", $before)) !== $entry['beforeNormalized'])) {
             throw new RuntimeException('Target changed since reviewed source: ' . $path);
         }
         $prepared[] = ['target' => $destination, 'before' => $before, 'after' => $contents, 'mode' => $before === null ? (str_starts_with($destination, $public . '/') ? 0644 : 0600) : fileperms($destination) & 0777];
