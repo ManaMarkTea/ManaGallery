@@ -160,10 +160,26 @@ function set_member_policy(array $user, string $key, string $action): void
 }
 function admin_action(string $path, array $user, array $all): bool
 {
-    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup'], true)) {
+    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup', '/admin/backups/archives'], true)) {
         return false;
     }
     require_admin($user);
+    if ($path === '/admin/backups/archives') {
+        $directory = backup_directory();
+        if ($directory === null) {
+            throw new DomainException('The backup folder was not found. Set backup_directory in config.local.php.');
+        }
+        $result = remove_uploaded_backup_archives($directory);
+        try {
+            with_write(fn () => log_activity((int)$user['id'], 'Removed ' . $result['removed'] . ' local backup archives already on Google Drive', 'backups'));
+        } catch (Throwable $error) {
+            error_log('Backup archive removal activity not logged: ' . $error->getMessage());
+        }
+        $_SESSION['notice'] = $result['removed'] === 0
+            ? 'No local archives are ready to remove yet.'
+            : 'Removed ' . $result['removed'] . ' local ' . ($result['removed'] === 1 ? 'archive' : 'archives') . ' already on Google Drive, freeing about ' . number_format($result['freed'] / 1073741824, 2) . ' GiB.';
+        redirect_to('/admin/health#backup-archives');
+    }
     if ($path === '/admin/backups/cleanup') {
         $directory = backup_directory();
         if ($directory === null) {

@@ -182,3 +182,161 @@ function remove_backup_leftovers(string $directory): array
         fclose($lock);
     }
 }
+
+const BACKUP_ARCHIVE_PATTERN = '/^(managallery-\d{8}T\d{6}Z-[0-9a-f]{6})\.zip$/D';
+
+function backup_json_file(string $file): array
+{
+    if (!is_file($file)) {
+        return [];
+    }
+    $data = json_decode((string)file_get_contents($file), true);
+
+    return is_array($data) ? $data : [];
+}
+
+/**
+ * Local encrypted archives and whether each can be removed from this server.
+ *
+ * An archive is removable once Google Drive confirmed the same bytes (its
+ * receipt) and its chain position is recorded in chain-index.json, so recovery
+ * checks no longer need the local copy. A full baseline is additionally kept
+ * until a downloaded recovery check has passed for a chain built on it.
+ */
+function backup_archives(string $directory): array
+{
+    $receipts = backup_json_file($directory . '/drive-receipts.json');
+    $index = backup_json_file($directory . '/chain-index.json');
+    $restore = backup_json_file($directory . '/drive-restore-check.json');
+    $verifiedBaseline = null;
+    if (($restore['status'] ?? '') === 'success' && is_string($restore['backupId'] ?? null)) {
+        $id = $restore['backupId'];
+        for ($steps = 0; is_string($id) && isset($index[$id]) && $steps < 1000; $steps++) {
+            if ($index[$id]['parent'] === null) {
+                $verifiedBaseline = $id;
+
+                break;
+            }
+            $id = $index[$id]['parent'];
+        }
+    }
+    $archives = [];
+    foreach (scandir($directory) ?: [] as $name) {
+        $path = $directory . '/' . $name;
+        if (!preg_match(BACKUP_ARCHIVE_PATTERN, $name, $match) || is_link($path) || !is_file($path)) {
+            continue;
+        }
+        $id = $match[1];
+        $bytes = filesize($path);
+        $receipt = $receipts[$name] ?? null;
+        $onDrive = is_array($receipt) && ($receipt['bytes'] ?? null) === $bytes
+            && is_int($receipt['checked'] ?? null) && filemtime($path) <= $receipt['checked'];
+        $indexed = isset($index[$id]) && array_key_exists('parent', $index[$id]);
+        $full = $indexed && $index[$id]['parent'] === null;
+        if (!$onDrive) {
+            $status = 'Not confirmed on Google Drive yet';
+        } elseif (!$indexed) {
+            $status = 'On Google Drive · kept until the next backup run records its chain';
+        } elseif ($full && $verifiedBaseline !== $id) {
+            $status = 'On Google Drive · full backup kept until a recovery check passes';
+        } else {
+            $status = 'On Google Drive · safe to remove here';
+        }
+        $archives[] = [
+            'name' => $name,
+            'bytes' => $bytes,
+            'modified' => filemtime($path) ?: null,
+            'full' => $full,
+            'removable' => $status === 'On Google Drive · safe to remove here',
+            'status' => $status,
+        ];
+    }
+    usort($archives, fn (array $a, array $b): int => strcmp($a['name'], $b['name']));
+
+    return $archives;
+}
+
+/**
+ * Delete local archives that Google Drive already holds. Pass $locked when the
+ * caller already holds drive-worker.lock (the scheduled backup does).
+ */
+function remove_uploaded_backup_archives(string $directory, bool $locked = false): array
+{
+    $lock = null;
+    if (!$locked) {
+        $lock = fopen($directory . '/drive-worker.lock', 'c');
+        if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+            throw new DomainException('A backup or recovery check is running right now. Try again after it finishes.');
+        }
+    }
+    try {
+        $removed = 0;
+        $freed = 0;
+        foreach (backup_archives($directory) as $archive) {
+            if ($archive['removable'] && unlink($directory . '/' . $archive['name'])) {
+                $removed++;
+                $freed += $archive['bytes'];
+            }
+        }
+
+        return ['removed' => $removed, 'freed' => $freed];
+    } finally {
+        if ($lock) {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+}
+
+/** Record an archive's place in its backup chain (id => parent). */
+function record_backup_chain(string $directory, string $id, ?string $parent): void
+{
+    $file = $directory . '/chain-index.json';
+    $index = backup_json_file($file);
+    $index[$id] = ['parent' => $parent];
+    ksort($index);
+    $next = $file . '.next';
+    if (file_put_contents($next, json_encode($index, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) === false || !rename($next, $file)) {
+        throw new RuntimeException('Cannot save backup chain index');
+    }
+}
+
+/**
+ * Receipts for the chain ending at $id, newest first. Uses chain-index.json so
+ * archives already removed from this server can still be located on Drive;
+ * archives without an index entry are read locally with the recovery password.
+ */
+function backup_chain(string $directory, string $id, array $receipts, string $password): array
+{
+    $index = backup_json_file($directory . '/chain-index.json');
+    $chain = [];
+    while ($id !== null) {
+        if (!is_string($id) || !preg_match('/^managallery-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{6}$/D', $id)
+            || isset($chain[$id]) || count($chain) > 1000) {
+            throw new RuntimeException('Invalid local chain metadata');
+        }
+        $name = $id . '.zip';
+        if (!isset($receipts[$name])) {
+            throw new RuntimeException('Latest backup chain is not fully copied to Drive');
+        }
+        if (isset($index[$id]) && array_key_exists('parent', $index[$id])) {
+            $parent = $index[$id]['parent'];
+        } else {
+            $zip = new ZipArchive();
+            if ($zip->open($directory . '/' . $name) !== true) {
+                throw new RuntimeException('Local chain metadata unavailable; use manual recovery instructions');
+            }
+            $zip->setPassword($password);
+            $manifest = json_decode((string)$zip->getFromName('manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+            $zip->close();
+            if (($manifest['id'] ?? '') !== $id || !array_key_exists('parent', $manifest)) {
+                throw new RuntimeException('Local manifest does not match its chain ID');
+            }
+            $parent = $manifest['parent'];
+        }
+        $chain[$id] = $receipts[$name];
+        $id = $parent;
+    }
+
+    return $chain;
+}

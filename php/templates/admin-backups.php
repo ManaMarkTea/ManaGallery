@@ -19,4 +19,18 @@
 <p class="help">Staged images are links to the live gallery files, so only the database copies and unfinished archives use extra space. Removal is skipped while a backup is running.</p>
 <?php endif; ?>
 <p class="help">Folder: <?= e($backupFolder) ?></p></section>
+<?php $localArchives = backup_archives($backupFolder);
+$removableArchives = array_filter($localArchives, fn (array $archive): bool => $archive['removable']); ?>
+<section class="prototype-panel" id="backup-archives"><h2>Local backup archives</h2>
+<?php if (!$localArchives): ?>
+<p>No encrypted archives are stored on this server. Backups are kept on Google Drive.</p>
+<?php else: ?>
+<p><?= number_format(count($localArchives)) ?> encrypted <?= count($localArchives) === 1 ? 'archive uses' : 'archives use' ?> <?= number_format(array_sum(array_column($localArchives, 'bytes')) / 1073741824, 2) ?> GiB here. Archives Google Drive has confirmed can be removed from this server; the scheduled backup also does this automatically after each upload.</p>
+<ul class="backup-leftovers"><?php foreach ($localArchives as $archive): ?><li><code><?= e($archive['name']) ?></code><?= $archive['full'] ? ' (full)' : '' ?> · <?= number_format($archive['bytes'] / 1048576, 1) ?> MiB · <?= e($archive['status']) ?></li><?php endforeach; ?></ul>
+<?php if ($removableArchives): ?>
+<form method="post" action="/admin/backups/archives"><?= csrf_field() ?><button type="submit">Remove <?= count($removableArchives) ?> <?= count($removableArchives) === 1 ? 'archive' : 'archives' ?> already on Google Drive (<?= number_format(array_sum(array_column($removableArchives, 'bytes')) / 1073741824, 2) ?> GiB)</button></form>
+<?php endif; ?>
+<p class="help">Full backups stay here until a downloaded recovery check passes for them. Recovery uses the copies on Google Drive.</p>
+<?php endif; ?>
+</section>
 <?php endif; ?>

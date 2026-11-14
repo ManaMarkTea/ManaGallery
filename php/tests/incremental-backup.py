@@ -125,6 +125,73 @@ $z->addFromString('../outside','evil');$z->setEncryptionName('../outside',ZipArc
         self.assertEqual(list(self.base.glob('*.stage')), [unrelated])
         self.assertTrue((self.app / 'storage/uploads/original.webp').is_file())
 
+    def php(self, code):
+        result = subprocess.run([PHP, '-r', "require '" + str(ROOT / 'src/backups.php') + "';" + code], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return json.loads(result.stdout)
+
+    def receipts(self, *archives):
+        receipts = {a.name: {'id': 'drive-' + a.stem[-6:], 'sha256': 'f' * 64, 'bytes': a.stat().st_size, 'checked': int(a.stat().st_mtime) + 5} for a in archives}
+        (self.base / 'drive-receipts.json').write_text(json.dumps(receipts))
+        return receipts
+
+    def archives(self):
+        return {a['name']: a for a in self.php("echo json_encode(backup_archives('" + str(self.base) + "'));")}
+
+    def test_chain_index_records_each_snapshot(self):
+        index = json.loads((self.base / 'chain-index.json').read_text())
+        self.assertEqual(index[self.full.stem], {'parent': None})
+        self.assertEqual(index[self.delta.stem], {'parent': self.full.stem})
+
+    def test_uploaded_archives_removed_but_full_kept_until_recovery_check(self):
+        local = self.base / 'managallery-20261101T000000Z-abcdef.zip'
+        local.write_bytes(b'Not yet uploaded')
+        self.receipts(self.full, self.delta)
+        archives = self.archives()
+        self.assertFalse(archives[self.full.name]['removable'])
+        self.assertIn('recovery check', archives[self.full.name]['status'])
+        self.assertTrue(archives[self.delta.name]['removable'])
+        self.assertFalse(archives[local.name]['removable'])
+        result = self.php("echo json_encode(remove_uploaded_backup_archives('" + str(self.base) + "'));")
+        self.assertEqual(result['removed'], 1)
+        self.assertFalse(self.delta.exists())
+        self.assertTrue(self.full.exists() and local.exists())
+        (self.base / 'drive-restore-check.json').write_text(json.dumps({'status': 'success', 'backupId': self.delta.stem, 'checked': 1}))
+        self.assertTrue(self.archives()[self.full.name]['removable'])
+        self.php("echo json_encode(remove_uploaded_backup_archives('" + str(self.base) + "'));")
+        self.assertFalse(self.full.exists())
+        self.assertTrue(local.exists() and (self.base / 'chain-state.json').exists())
+
+    def test_failed_recovery_check_keeps_full_baseline(self):
+        self.receipts(self.full, self.delta)
+        (self.base / 'drive-restore-check.json').write_text(json.dumps({'status': 'failed', 'backupId': self.delta.stem}))
+        self.assertFalse(self.archives()[self.full.name]['removable'])
+
+    def test_archive_changed_after_upload_is_kept(self):
+        self.receipts(self.full, self.delta)
+        os.utime(self.delta, (self.delta.stat().st_mtime + 60,) * 2)
+        self.assertFalse(self.archives()[self.delta.name]['removable'])
+
+    def test_unindexed_archive_kept(self):
+        self.receipts(self.full, self.delta)
+        (self.base / 'chain-index.json').unlink()
+        self.assertFalse(any(a['removable'] for a in self.archives().values()))
+
+    def test_recovery_chain_found_after_local_archives_removed(self):
+        receipts = self.receipts(self.full, self.delta)
+        self.full.unlink()
+        self.delta.unlink()
+        chain = self.php("echo json_encode(backup_chain('" + str(self.base) + "', '" + self.delta.stem + "', json_decode(file_get_contents('" + str(self.base / 'drive-receipts.json') + "'), true), 'unused'));")
+        self.assertEqual(list(chain), [self.delta.stem, self.full.stem])
+        self.assertEqual(chain[self.full.stem], receipts[self.full.name])
+
+    def test_recovery_chain_reads_unindexed_local_archives(self):
+        self.receipts(self.full, self.delta)
+        (self.base / 'chain-index.json').unlink()
+        password = self.password.read_text()
+        chain = self.php("echo json_encode(array_keys(backup_chain('" + str(self.base) + "', '" + self.delta.stem + "', json_decode(file_get_contents('" + str(self.base / 'drive-receipts.json') + "'), true), '" + password + "')));")
+        self.assertEqual(chain, [self.delta.stem, self.full.stem])
+
     def test_status_preserves_prior_success_when_cloud_or_restore_fails(self):
         settings = self.root / 'settings.json'
         settings.write_text(json.dumps({'appDirectory': str(self.app), 'backupDirectory': str(self.base)}))

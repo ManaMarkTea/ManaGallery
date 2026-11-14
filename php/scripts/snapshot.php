@@ -228,6 +228,8 @@ if ($incremental) {
         || !rename($stateTemporary, $stateFile)) {
         throw new RuntimeException('Cannot publish incremental state; verified archive retained');
     }
+    require_once dirname(__DIR__) . '/src/backups.php';
+    record_backup_chain($base, $name, $manifest['parent']);
     echo ($previous ? 'Incremental' : 'Full') . ' snapshot: ' . count($manifest['changed']) . " changed files.\n";
 }
 // Only remove the exact staging files we created, after successful verification.
