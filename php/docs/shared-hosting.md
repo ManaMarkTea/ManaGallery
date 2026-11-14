@@ -40,6 +40,15 @@ Schedule `php /private/path/send-notifications.php /private/app` every five minu
 see [notifications](comment-notifications.md) for installation and SMTP setup.
 Use the PHP executable supplied by your host if `php` selects an older version.
 
+## Code updates
+
+`php scripts/build-release.php NEW_DIRECTORY [COMMIT]` builds a code-only release
+from a checkout. Copy it to a private releases folder on the host and run
+`php RELEASE/deploy-shared-host.php RELEASE PRIVATE_APP PUBLIC_ROOT [PRIVATE_BACKUP_TOOLS]`.
+It updates `src/`, `templates/`, `public/index.php` and assets (and the backup
+tools' `scripts/` and `src/` when that folder is given), saves every replaced
+file under `RELEASE/previous-code/`, and never touches storage or configuration.
+
 ## Backups
 
 The optional SSH/rsync backup scripts require explicit private deployment settings:

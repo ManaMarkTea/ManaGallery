@@ -3,7 +3,7 @@
 Start with [the installation guide](../docs/getting-started.md). No migration or existing gallery is required.
 
 
-[Shared-hosting setup](docs/shared-hosting.md) | [Deploying from GitHub](docs/github-deploy.md) | [Email notifications](docs/comment-notifications.md)
+[Shared-hosting setup](docs/shared-hosting.md) | [Email notifications](docs/comment-notifications.md)
 
 ## Run locally
 
