@@ -104,4 +104,6 @@ full backup from Drive, you can remove an older **complete chain**. Removing a
 single ZIP from the middle makes later incrementals in that chain unusable.
 
 Keep enough local free space for a full archive, staging and pending uploads.
+A failed snapshot removes its own staging folder and unfinished `.zip.partial`
+archive, and each run also clears any left by an interrupted earlier run.
 Full baselines intentionally remain local until an operator has tested recovery.

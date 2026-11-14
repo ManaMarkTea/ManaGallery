@@ -101,6 +101,30 @@ $z->addFromString('../outside','evil');$z->setEncryptionName('../outside',ZipArc
         self.assertIsNone(json.loads((self.base / 'chain-state.json').read_text())['parent'])
         self.command('restore-chain.php', self.root / 'new-full', self.password, baseline)
 
+    def test_failed_snapshot_leaves_no_staging_or_partial_archive(self):
+        before = sorted(self.base.iterdir())
+        (self.app / 'storage/uploads/preview.webp').unlink()
+        result = self.command('snapshot.php', self.app, self.base, self.password, '--incremental', success=False)
+        self.assertIn('missing a referenced upload', result.stderr + result.stdout)
+        self.assertEqual(sorted(self.base.iterdir()), before)
+        self.assertTrue((self.app / 'storage/uploads/original.webp').is_file())
+
+    def test_leftovers_from_interrupted_runs_are_removed(self):
+        stale = self.base / 'managallery-20261110T141540Z-a1b610.stage'
+        (stale / 'storage/uploads').mkdir(parents=True)
+        os.link(self.app / 'storage/uploads/original.webp', stale / 'storage/uploads/original.webp')
+        (stale / 'storage/php-gallery.sqlite').write_bytes(b'Fictional database copy')
+        partial = self.base / 'managallery-20261110T141540Z-a1b610.zip.partial'
+        partial.write_bytes(b'Fictional unfinished archive')
+        unrelated = self.base / 'keep-me.stage'
+        unrelated.mkdir()
+        self.snapshot()
+        self.assertFalse(stale.exists())
+        self.assertFalse(partial.exists())
+        self.assertTrue(unrelated.is_dir())
+        self.assertEqual(list(self.base.glob('*.stage')), [unrelated])
+        self.assertTrue((self.app / 'storage/uploads/original.webp').is_file())
+
     def test_status_preserves_prior_success_when_cloud_or_restore_fails(self):
         settings = self.root / 'settings.json'
         settings.write_text(json.dumps({'appDirectory': str(self.app), 'backupDirectory': str(self.base)}))
