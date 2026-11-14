@@ -16,6 +16,9 @@ return [
     // 'discord_webhook' belongs only in config.local.php, never in Git.
     // Optional starting value; editable in Admin > Settings.
     'discord_invite' => '',
+    // Native backup folder for Admin > Health cleanup. Empty uses a
+    // native-backups folder beside the app directory when one exists.
+    'backup_directory' => '',
     'catalogue' => __DIR__ . '/storage/gallery.json',
     'media_root' => __DIR__ . '/storage/archive',
 ];

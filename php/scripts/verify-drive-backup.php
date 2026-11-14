@@ -38,30 +38,8 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 $state = json_decode(file_get_contents($base . '/chain-state.json'), true, 512, JSON_THROW_ON_ERROR);
 $receipts = json_decode(file_get_contents($base . '/drive-receipts.json'), true, 512, JSON_THROW_ON_ERROR);
 $password = rtrim(file_get_contents($settings['passwordFile']), "\r\n");
-$chain = [];
-$id = $state['id'];
-while ($id !== null) {
-    if (!is_string($id) || !preg_match('/^managallery-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{6}$/D', $id)
-        || isset($chain[$id]) || count($chain) > 1000) {
-        throw new RuntimeException('Invalid local chain metadata');
-    }
-    $name = $id . '.zip';
-    if (!isset($receipts[$name])) {
-        throw new RuntimeException('Latest backup chain is not fully copied to Drive');
-    }
-    $zip = new ZipArchive();
-    if ($zip->open($base . '/' . $name) !== true) {
-        throw new RuntimeException('Local chain metadata unavailable; use manual recovery instructions');
-    }
-    $zip->setPassword($password);
-    $manifest = json_decode($zip->getFromName('manifest.json'), true, 512, JSON_THROW_ON_ERROR);
-    $zip->close();
-    if (($manifest['id'] ?? '') !== $id || !array_key_exists('parent', $manifest)) {
-        throw new RuntimeException('Local manifest does not match its chain ID');
-    }
-    $chain[$id] = $receipts[$name];
-    $id = $manifest['parent'];
-}
+require_once dirname(__DIR__) . '/src/backups.php';
+$chain = backup_chain($base, $state['id'], $receipts, $password);
 if (!mkdir($destination, 0700)) {
     throw new RuntimeException('Cannot create private recovery check directory');
 }

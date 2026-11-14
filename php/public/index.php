@@ -40,6 +40,8 @@ $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notification
 $postRoutes[] = '/admin/notifications/send';
 $postRoutes[] = '/admin/icon';
 $postRoutes[] = '/admin/discord';
+$postRoutes[] = '/admin/backups/cleanup';
+$postRoutes[] = '/admin/backups/archives';
 $postRoutes = array_merge($postRoutes, ['/verify-email', '/account/verify-email', '/passkeys/register/options', '/passkeys/register/finish', '/passkeys/login/options', '/passkeys/login/finish', '/passkeys/delete']);
 if (!in_array($method, ['GET', 'HEAD', 'POST'], true) || ($method === 'POST' && !in_array($path, $postRoutes, true) && !preg_match('~^/art/[1-9][0-9]*/(?:edit|delete)$~D', $path))) {
     header('Allow: GET, HEAD');

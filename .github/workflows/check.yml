@@ -64,10 +64,12 @@ jobs:
       - run: php tests/notifications.php
       - run: php tests/discord-images.php
       - run: php tests/security.php
+      - run: php tests/sessions.php
       - run: php -d disable_functions=mail tests/mail-sender.php
       - run: php tests/smtp.php
       - run: python3 tests/backup-verification.py
       - run: python3 tests/incremental-backup.py
+      - run: python3 tests/deploy-release.py
       - run: python3 tests/drive-connection.py
       - run: npm ci
       - run: npm run check:viewer

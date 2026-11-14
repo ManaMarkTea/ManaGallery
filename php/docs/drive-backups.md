@@ -98,10 +98,18 @@ decrypted configuration, member data and artwork.
 
 ## Retention
 
-The tools do not delete backup chains automatically. Keep the full ZIP and every
-incremental ZIP needed for each retained restore point. After verifying a newer
-full backup from Drive, you can remove an older **complete chain**. Removing a
-single ZIP from the middle makes later incrementals in that chain unusable.
+After each upload, the backup removes local archives that Google Drive has
+confirmed (same size, unchanged since upload). `chain-index.json` records each
+archive's place in its chain, so recovery checks download everything they need
+from Drive. A **full** archive stays on the server until a downloaded recovery
+check passes for its chain. Admin > Health lists local archives and has a button
+to remove confirmed ones immediately. Set `"keepLocalArchives": true` in the
+Drive settings file to keep every local copy instead.
+
+Nothing is ever deleted from Google Drive. Keep the full ZIP and every
+incremental ZIP needed for each retained restore point there. Removing a single
+ZIP from the middle of a chain makes later incrementals in that chain unusable.
 
 Keep enough local free space for a full archive, staging and pending uploads.
-Full baselines intentionally remain local until an operator has tested recovery.
+A failed snapshot removes its own staging folder and unfinished `.zip.partial`
+archive, and each run also clears any left by an interrupted earlier run.

@@ -24,9 +24,44 @@ $job = fopen($base . '/snapshot.lock', 'c');
 if (!$job || !flock($job, LOCK_EX | LOCK_NB)) {
     throw new RuntimeException('A snapshot is already running');
 }
+// Staging folders hold hard links to live files plus a full database copy.
+// Remove only tool-named entries directly inside the backup directory; a
+// symlink anywhere aborts rather than following it outside.
+$removeStage = function (string $directory) use ($base): void {
+    if (dirname($directory) !== $base || !preg_match('/^managallery-\d{8}T\d{6}Z-[0-9a-f]{6}\.stage$/D', basename($directory))
+        || is_link($directory) || !is_dir($directory)) {
+        return;
+    }
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST) as $file) {
+        if ($file->isLink()) {
+            throw new RuntimeException('Symlink in snapshot staging; remove it manually');
+        }
+        $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+    }
+    rmdir($directory);
+};
+// The snapshot lock is held, so any staging or partial archive left here is
+// from an interrupted earlier run.
+foreach (glob($base . '/managallery-*.stage', GLOB_ONLYDIR) ?: [] as $leftover) {
+    $removeStage($leftover);
+}
+foreach (glob($base . '/managallery-*.zip.partial') ?: [] as $leftover) {
+    if (!is_link($leftover) && preg_match('/^managallery-\d{8}T\d{6}Z-[0-9a-f]{6}\.zip\.partial$/D', basename($leftover))) {
+        unlink($leftover);
+    }
+}
 $name = 'managallery-' . gmdate('Ymd\THis\Z') . '-' . bin2hex(random_bytes(3));
 $stage = $base . '/' . $name . '.stage';
 mkdir($stage, 0700);
+$temporary = $base . '/' . $name . '.zip.partial';
+// On any failure (integrity check, full disk, encryption error) remove this
+// run's staging and unfinished archive so failed runs cannot fill the disk.
+register_shutdown_function(function () use ($removeStage, $stage, $temporary): void {
+    if (is_file($temporary) && !is_link($temporary)) {
+        unlink($temporary);
+    }
+    $removeStage($stage);
+});
 $files = [];
 $add = function (string $source, string $relative) use ($stage, &$files): void {
     if (!is_file($source) || is_link($source)) {
@@ -134,7 +169,6 @@ if ($incremental) {
 }
 $zip = new ZipArchive();
 $output = $base . '/' . $name . '.zip';
-$temporary = $output . '.partial';
 if ($zip->open($temporary, ZipArchive::CREATE | ZipArchive::EXCL) !== true) {
     throw new RuntimeException('Cannot create encrypted snapshot');
 }
@@ -194,6 +228,8 @@ if ($incremental) {
         || !rename($stateTemporary, $stateFile)) {
         throw new RuntimeException('Cannot publish incremental state; verified archive retained');
     }
+    require_once dirname(__DIR__) . '/src/backups.php';
+    record_backup_chain($base, $name, $manifest['parent']);
     echo ($previous ? 'Incremental' : 'Full') . ' snapshot: ' . count($manifest['changed']) . " changed files.\n";
 }
 // Only remove the exact staging files we created, after successful verification.

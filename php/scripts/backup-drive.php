@@ -49,3 +49,31 @@ foreach ($archives as $archive) {
     }
 }
 echo "Drive upload checks passed. Download and restore the chain separately to test recovery.\n";
+require_once dirname(__DIR__) . '/src/backups.php';
+// Archives made before chain-index.json existed: read their encrypted
+// manifests once so recovery checks no longer need the local copies.
+$index = backup_json_file($base . '/chain-index.json');
+$password = null;
+foreach ($archives as $archive) {
+    $id = basename($archive, '.zip');
+    if (isset($index[$id]) || !is_file($archive)) {
+        continue;
+    }
+    $password ??= rtrim(file_get_contents($settings['passwordFile']), "\r\n");
+    $zip = new ZipArchive();
+    if ($zip->open($archive) !== true) {
+        throw new RuntimeException('Cannot open archive to index its chain: ' . basename($archive));
+    }
+    $zip->setPassword($password);
+    $manifest = json_decode((string)$zip->getFromName('manifest.json'), true);
+    $zip->close();
+    if (is_array($manifest) && ($manifest['id'] ?? null) === $id && array_key_exists('parent', $manifest)) {
+        record_backup_chain($base, $id, $manifest['parent']);
+    }
+}
+if (($settings['keepLocalArchives'] ?? false) !== true) {
+    $pruned = remove_uploaded_backup_archives($base, true);
+    if ($pruned['removed'] > 0) {
+        echo 'Removed ' . $pruned['removed'] . ' local archive(s) already on Google Drive, freeing ' . number_format($pruned['freed'] / 1048576, 1) . " MiB.\n";
+    }
+}
