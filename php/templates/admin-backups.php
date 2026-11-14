@@ -6,3 +6,17 @@
 <?php foreach ($backupReport['jobs'] as $job): ?><article class="backup-job"><div class="backup-job-heading"><h3><?= e($job['label']) ?></h3><span class="backup-state backup-state-<?= e($job['status']) ?>"><?= e(ucfirst($job['status'])) ?></span></div><p class="help"><?= e($job['cadence']) ?></p><dl><dt>Last completed successfully</dt><dd><?php render_time($job['lastSuccess']); ?></dd><dt>Latest attempt</dt><dd><?php render_time($job['lastRun']); ?></dd><dt>Next scheduled run</dt><dd><?php render_time($job['nextRun']); ?></dd></dl><details class="backup-log"><summary>View latest log</summary><pre><?= e($job['log']) ?></pre></details></article><?php endforeach; ?>
 </div><p class="help">Check that your backups include the database, artwork, uploads, attachments and configuration. Keep the recovery password separately from the backups.</p></section>
 <?php endif; ?>
+<?php $backupFolder = backup_directory(); ?>
+<?php if ($backupFolder !== null): ?>
+<?php $leftovers = backup_leftovers($backupFolder); ?>
+<section class="prototype-panel" id="backup-leftovers"><h2>Leftover backup files</h2>
+<?php if (!$leftovers): ?>
+<p>No staging folders or unfinished archives from failed backup runs.</p>
+<?php else: ?>
+<p>Failed backup runs left <?= number_format(count($leftovers)) ?> staging <?= count($leftovers) === 1 ? 'item' : 'items' ?> behind. Removing them frees about <strong><?= number_format(array_sum(array_column($leftovers, 'reclaimable')) / 1048576, 1) ?> MiB</strong>. Completed backup archives and gallery files are never removed.</p>
+<ul class="backup-leftovers"><?php foreach ($leftovers as $leftover): ?><li><code><?= e($leftover['name']) ?></code> · <?php render_time($leftover['modified']); ?> · <?= number_format($leftover['files']) ?> files · <?= number_format($leftover['reclaimable'] / 1048576, 1) ?> MiB</li><?php endforeach; ?></ul>
+<form method="post" action="/admin/backups/cleanup"><?= csrf_field() ?><button type="submit">Remove leftover backup files</button></form>
+<p class="help">Staged images are links to the live gallery files, so only the database copies and unfinished archives use extra space. Removal is skipped while a backup is running.</p>
+<?php endif; ?>
+<p class="help">Folder: <?= e($backupFolder) ?></p></section>
+<?php endif; ?>
