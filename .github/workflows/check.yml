@@ -65,6 +65,9 @@ jobs:
       - run: php tests/discord-images.php
       - run: php tests/security.php
       - run: php tests/sessions.php
+      - run: php tests/updates.php
+      - run: php tests/storage-report.php
+      - run: python3 tests/update-auth.py
       - run: php -d disable_functions=mail tests/mail-sender.php
       - run: php tests/smtp.php
       - run: python3 tests/backup-verification.py

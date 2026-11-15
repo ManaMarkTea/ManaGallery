@@ -21,6 +21,9 @@ if (!$mediaRequest) {
     require dirname(__DIR__) . '/src/legacy.php';
     require dirname(__DIR__) . '/src/analytics.php';
     require dirname(__DIR__) . '/src/backups.php';
+    require dirname(__DIR__) . '/src/updates.php';
+    require dirname(__DIR__) . '/src/storage-report.php';
+    require dirname(__DIR__) . '/src/code-deploy.php';
     require dirname(__DIR__) . '/src/notifications.php';
     require dirname(__DIR__) . '/src/account-security.php';
     require dirname(__DIR__) . '/src/passkeys.php';
@@ -35,10 +38,12 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' blob:; img-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Cache-Control: private, no-store');
 $postRoutes = ['/register', '/login', '/logout', '/upload', '/account/password', '/admin/approve', '/admin/trust', '/admin/disable', '/admin/visibility', '/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/comment', '/comment/delete', '/favorite'];
-$adminPages = ['/admin', '/admin/review', '/admin/users', '/admin/artworks', '/admin/comments', '/admin/categories', '/admin/settings', '/admin/activity', '/admin/health'];
+$adminPages = ['/admin', '/admin/review', '/admin/users', '/admin/artworks', '/admin/comments', '/admin/categories', '/admin/settings', '/admin/activity', '/admin/health', '/admin/updates'];
 $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notifications/confirm', '/notifications/unsubscribe']);
 $postRoutes[] = '/admin/notifications/send';
 $postRoutes[] = '/admin/icon';
+$postRoutes[] = '/admin/storage/scan';
+$postRoutes = array_merge($postRoutes, ['/admin/updates/check', '/admin/updates/install']);
 $postRoutes[] = '/admin/discord';
 $postRoutes[] = '/admin/backups/cleanup';
 $postRoutes[] = '/admin/backups/archives';
@@ -113,6 +118,9 @@ try {
             readfile($file);
         }
         exit;
+    }
+    if (!$mediaRequest && $method === 'POST' && str_starts_with($path, '/admin/updates/')) {
+        update_action($path, $user, $siteLock);
     }
     $all = all_artworks(apply_categories(catalogue()));
     $data = $all;

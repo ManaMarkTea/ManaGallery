@@ -1,0 +1,45 @@
+name: Publish gallery update
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'New release tag (for example v2026.11.15.1)'
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: publish-gallery-update
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate release tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || exit 1
+          ! git rev-parse --verify "refs/tags/$TAG"
+      - name: Check and package code
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-curl php-zip php-sqlite3 php-mbstring
+          python3 scripts/check-source.py
+          find php/src php/templates php/public php/scripts -name '*.php' -exec php -l {} + > /dev/null
+          php php/tests/updates.php
+          php php/tests/storage-report.php
+          python3 php/tests/update-auth.py
+          php php/tests/backups.php
+          php php/tests/sessions.php
+          python3 php/tests/deploy-release.py
+          php php/scripts/build-release.php "$RUNNER_TEMP/release" "$GITHUB_SHA"
+          python3 php/scripts/package-update.py "$RUNNER_TEMP/release" "$RUNNER_TEMP/managallery-update.zip"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release create "$TAG" "$RUNNER_TEMP/managallery-update.zip" --target "$GITHUB_SHA" --title "ManaGallery $TAG" --generate-notes --latest

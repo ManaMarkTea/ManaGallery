@@ -19,6 +19,11 @@ return [
     // Native backup folder for Admin > Health cleanup. Empty uses a
     // native-backups folder beside the app directory when one exists.
     'backup_directory' => '',
+    // For split shared-host layouts, set these in config.local.php.
+    'update_public_root' => __DIR__ . '/public',
+    'update_backup_tools' => null,
+    // Optional absolute account home to include other sites in storage scans.
+    'storage_account_root' => null,
     'catalogue' => __DIR__ . '/storage/gallery.json',
     'media_root' => __DIR__ . '/storage/archive',
 ];

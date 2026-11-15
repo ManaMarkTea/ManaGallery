@@ -10,6 +10,7 @@ $sections = [
     '/admin/settings' => 'Settings',
     '/admin/activity' => 'Activity',
     '/admin/health' => 'Site health',
+    '/admin/updates' => 'Updates',
 ];
 $overviewPaths = ['/admin', '/admin/review', '/admin/approve', '/admin/trust', '/admin/disable', '/admin/visibility'];
 $pageTitle = match ($path) {
@@ -20,6 +21,7 @@ $pageTitle = match ($path) {
     '/admin/comments' => 'Comment review',
     '/admin/activity' => 'Recent activity',
     '/admin/health' => 'Site health',
+    '/admin/updates' => 'Updates',
     default => 'Administration',
 };
 ?>
@@ -70,6 +72,7 @@ $pageTitle = match ($path) {
                         '/admin/comments', '/admin/comment' => 'comments',
                         '/admin/activity' => 'activity',
                         '/admin/health' => 'health',
+                        '/admin/updates' => 'updates',
                         default => 'settings',
                     };
 require __DIR__ . '/admin-' . $section . '.php';

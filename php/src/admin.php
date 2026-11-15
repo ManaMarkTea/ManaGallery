@@ -160,10 +160,15 @@ function set_member_policy(array $user, string $key, string $action): void
 }
 function admin_action(string $path, array $user, array $all): bool
 {
-    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup', '/admin/backups/archives'], true)) {
+    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup', '/admin/backups/archives', '/admin/storage/scan'], true)) {
         return false;
     }
     require_admin($user);
+    if ($path === '/admin/storage/scan') {
+        $result = storage_scan_step(5.0, param($_POST, 'restart') === '1');
+        $_SESSION['notice'] = $result['complete'] ? 'Storage scan completed.' : 'Storage scan saved its progress. Continue to measure the remaining files.';
+        redirect_to('/admin/health#storage');
+    }
     if ($path === '/admin/backups/archives') {
         $directory = backup_directory();
         if ($directory === null) {

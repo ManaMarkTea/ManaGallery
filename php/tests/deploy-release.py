@@ -63,6 +63,21 @@ class DeployReleaseTests(unittest.TestCase):
         self.assertIn('Disallowed update path', self.deploy(self.tools, success=False))
         self.assertEqual((self.app / 'src/auth.php').read_text(), '<?php // hand-edited on the server\n')
 
+    def test_checksum_mismatch_does_not_change_live_code(self):
+        (self.release / 'src/auth.php').write_text('<?php // corrupt download\n')
+        self.assertIn('Staged checksum mismatch', self.deploy(success=False))
+        self.assertEqual((self.app / 'src/auth.php').read_text(), '<?php // hand-edited on the server\n')
+
+    @unittest.skipIf(os.name == 'nt' or (hasattr(os, 'geteuid') and os.geteuid() == 0), 'needs Unix directory permissions')
+    def test_failed_switch_restores_replaced_files(self):
+        before = (self.app / 'src/auth.php').read_bytes()
+        (self.app / 'templates').chmod(0o500)
+        try:
+            self.deploy(success=False)
+            self.assertEqual((self.app / 'src/auth.php').read_bytes(), before)
+        finally:
+            (self.app / 'templates').chmod(0o700)
+
     def test_reviewed_manifest_still_requires_matching_original(self):
         manifest = json.loads((self.release / 'manifest.json').read_text())
         for entry in manifest['files']:

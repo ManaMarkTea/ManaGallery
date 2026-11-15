@@ -2,7 +2,8 @@
 $settings = site_settings();
 $imports = (int)query('SELECT COUNT(*) FROM imported_accounts')->fetchColumn();
 $held = (int)query('SELECT COUNT(*) FROM comments WHERE deleted=0 AND moderation_reason IS NOT NULL')->fetchColumn(); ?>
-<div class="admin-metrics"><div><strong><?= $disk === false ? 'Unavailable' : number_format($disk / 1073741824, 1) . ' GiB' ?></strong><span>disk available · 2 GiB reserved</span></div><div><strong><?= number_format(upload_usage() / 1048576, 1) ?> MiB</strong><span>uploaded / <?= number_format($settings['galleryQuotaMiB']) ?> MiB allowance</span></div><div><strong><?= number_format($held) ?></strong><span>comments held for review</span></div></div>
+<div class="admin-metrics"><div><strong><?= $disk === false ? 'Unavailable' : number_format($disk / 1073741824, 1) . ' GiB' ?></strong><span>shared filesystem free · not your hosting allowance</span></div><div><strong><?= number_format(upload_usage() / 1048576, 1) ?> MiB</strong><span>uploaded / <?= number_format($settings['galleryQuotaMiB']) ?> MiB allowance</span></div><div><strong><?= number_format($held) ?></strong><span>comments held for review</span></div></div>
+<?php require __DIR__ . '/admin-storage.php'; ?>
 <section class="prototype-panel"><h2>Runtime &amp; data</h2>
 <?php $runtimeDetails = [
     'PHP version' => PHP_VERSION,
