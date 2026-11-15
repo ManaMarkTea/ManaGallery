@@ -16,7 +16,7 @@ function config(): array
 {
     global $root;
 
-    return ['media_root' => $root . '/archive', 'storage_account_root' => $root];
+    return ['media_root' => $root . '/link-parent/account/archive', 'storage_account_root' => $root];
 }
 function check(bool $ok, string $message): void
 {
@@ -35,6 +35,10 @@ try {
     if (function_exists('symlink')) {
         symlink(sys_get_temp_dir(), $root . '/outside-link');
     }
+    mkdir($root . '/link-parent');
+    symlink($root, $root . '/link-parent/account');
+    // Classifying an alias must still match canonical paths from the scan.
+    check(storage_bucket($root . '/archive/image.jpg') === 'Archive artwork', 'Archive bucket resolves configured roots');
     check(storage_database_bytes() === 150, 'Database includes journal bytes');
     $report = storage_scan_step(0.0);
     check(!$report['complete'], 'Zero-budget scan saves a resumable cursor');

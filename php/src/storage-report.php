@@ -75,7 +75,12 @@ function storage_bucket(string $path): string
         if (!empty(config()['public_preview_directory'])) {
             $prefixes[config()['public_preview_directory']] = 'Published preview copies';
         }
-        $account = rtrim(config()['storage_account_root'] ?? $base, '/');
+        $canonical = [];
+        foreach ($prefixes as $prefix => $label) {
+            $canonical[realpath($prefix) ?: $prefix] = $label;
+        }
+        $prefixes = $canonical;
+        $account = realpath(config()['storage_account_root'] ?? $base) ?: $base;
     }
     foreach ($prefixes as $prefix => $label) {
         if ($path === $prefix || str_starts_with($path, rtrim($prefix, '/') . '/')) {
@@ -111,7 +116,7 @@ function storage_scan_step(float $seconds = 5.0, bool $restart = false): array
             unlink($file);
         }
         $db = new PDO('sqlite:' . $file, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-        $db->exec('PRAGMA busy_timeout=1000; CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY,value TEXT); CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY,path TEXT,offset INTEGER DEFAULT 0); CREATE TABLE IF NOT EXISTS seen (device TEXT,inode TEXT,PRIMARY KEY(device,inode)); CREATE TABLE IF NOT EXISTS totals (bucket TEXT PRIMARY KEY,bytes INTEGER DEFAULT 0,logical INTEGER DEFAULT 0,files INTEGER DEFAULT 0); CREATE TABLE IF NOT EXISTS largest (path TEXT,bytes INTEGER);');
+        $db->exec('PRAGMA busy_timeout=1000; CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY,value TEXT); CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY,path TEXT,offset INTEGER DEFAULT 0); CREATE TABLE IF NOT EXISTS seen (device TEXT,inode TEXT,PRIMARY KEY(device,inode)); CREATE TABLE IF NOT EXISTS paths (hash TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS totals (bucket TEXT PRIMARY KEY,bytes INTEGER DEFAULT 0,logical INTEGER DEFAULT 0,files INTEGER DEFAULT 0); CREATE TABLE IF NOT EXISTS largest (path TEXT,bytes INTEGER);');
         if (!$db->query("SELECT value FROM meta WHERE key='started'")->fetchColumn()) {
             $insert = $db->prepare('INSERT INTO queue(path) VALUES (?)');
             foreach (storage_scan_roots() as $root) {
@@ -125,6 +130,7 @@ function storage_scan_step(float $seconds = 5.0, bool $restart = false): array
         $reportFile = private_directory() . '/storage-report.json';
         $db->beginTransaction();
         $seen = $db->prepare('INSERT OR IGNORE INTO seen VALUES (?,?)');
+        $pathSeen = $db->prepare('INSERT OR IGNORE INTO paths VALUES (?)');
         $add = $db->prepare('INSERT INTO totals VALUES (?,?,?,1) ON CONFLICT(bucket) DO UPDATE SET bytes=bytes+excluded.bytes,logical=logical+excluded.logical,files=files+1');
         $enqueue = $db->prepare('INSERT INTO queue(path) VALUES (?)');
         $cursor = $db->prepare('UPDATE queue SET offset=? WHERE id=?');
@@ -165,6 +171,10 @@ function storage_scan_step(float $seconds = 5.0, bool $restart = false): array
                     break;
                 }
                 if (($stat['mode'] & 0170000) !== 0100000) {
+                    continue;
+                }
+                $pathSeen->execute([hash('sha256', $path)]);
+                if ($pathSeen->rowCount() === 0) {
                     continue;
                 }
                 $seen->execute([(string)$stat['dev'], (string)$stat['ino']]);
