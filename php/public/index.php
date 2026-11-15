@@ -43,6 +43,7 @@ $postRoutes = array_merge($postRoutes, ['/account/notifications', '/notification
 $postRoutes[] = '/admin/notifications/send';
 $postRoutes[] = '/admin/icon';
 $postRoutes[] = '/admin/storage/scan';
+$postRoutes[] = '/admin/errors/clear';
 $postRoutes = array_merge($postRoutes, ['/admin/updates/check', '/admin/updates/install']);
 $postRoutes[] = '/admin/discord';
 $postRoutes[] = '/admin/backups/cleanup';

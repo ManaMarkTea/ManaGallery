@@ -1,5 +1,6 @@
 """Exercise updater authorization through HTTP against an isolated gallery."""
 import http.cookiejar
+import json
 import os
 import re
 import shutil
@@ -83,6 +84,23 @@ with tempfile.TemporaryDirectory(prefix='gallery-update-http-') as temporary:
                 assert request(browser, '/admin/storage/scan', {'csrf': 'invalid'})[0] == 403
                 assert request(browser, '/admin/storage/scan', {'csrf': csrf})[0] == 303
                 assert 'Unique file bytes' in request(browser, '/admin/health')[2]
+                error_log = app / 'storage/error_log'
+                old_error = json.dumps({'requestId': 'a' * 16, 'message': 'Fictional historical error 001'}) + '\n'
+                new_error = json.dumps({'requestId': 'b' * 16, 'message': 'Fictional new error 002'}) + '\n'
+                error_log.write_text(old_error)
+                assert 'Fictional historical error 001' in request(browser, '/admin/health')[2]
+                assert request(browser, '/admin/errors/clear', {'csrf': 'invalid'})[0] == 403
+                assert request(browser, '/admin/errors/clear', {'csrf': csrf})[0] == 303
+                assert error_log.read_text() == old_error, 'Clearing must retain the diagnostic log'
+                assert 'Fictional historical error 001' not in request(browser, '/admin/health')[2]
+                with error_log.open('a') as output:
+                    output.write(new_error)
+                body = request(browser, '/admin/health')[2]
+                assert 'Fictional new error 002' in body and 'Fictional historical error 001' not in body
+                error_log.replace(app / 'storage/rotated-log')
+                error_log.write_text(new_error)
+                assert 'Fictional new error 002' in request(browser, '/admin/health')[2], 'Rotated logs must remain visible'
+
             print('Updater HTTP admin/member access, CSRF and password checks passed.')
         finally:
             server.terminate()

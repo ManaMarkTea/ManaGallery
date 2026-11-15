@@ -19,7 +19,12 @@ function recent_application_errors(): array
     if (!$handle) {
         return [];
     }
-    fseek($handle, max(0, filesize($file) - 65536));
+    $stat = fstat($handle);
+    $markerFile = private_directory() . '/errors-cleared.json';
+    $marker = is_file($markerFile) ? json_decode((string)file_get_contents($markerFile), true) : [];
+    $offset = is_array($marker) && ($marker['inode'] ?? null) === $stat['ino'] && ($marker['device'] ?? null) === $stat['dev']
+        && is_int($marker['offset'] ?? null) && $marker['offset'] >= 0 && $marker['offset'] <= $stat['size'] ? $marker['offset'] : 0;
+    fseek($handle, max($offset, $stat['size'] - 65536));
     $contents = stream_get_contents($handle);
     fclose($handle);
     $errors = [];
@@ -32,6 +37,25 @@ function recent_application_errors(): array
     }
 
     return array_reverse(array_slice($errors, -10));
+}
+
+function clear_recent_application_errors(): void
+{
+    $file = private_directory() . '/error_log';
+    clearstatcache(true, $file);
+    $stat = is_file($file) ? stat($file) : null;
+    $marker = ['inode' => $stat['ino'] ?? null, 'device' => $stat['dev'] ?? null, 'offset' => $stat['size'] ?? 0];
+    $path = private_directory() . '/errors-cleared.json';
+    $json = json_encode($marker, JSON_THROW_ON_ERROR);
+    $temporary = $path . '.' . bin2hex(random_bytes(6));
+    if (file_put_contents($temporary, $json) !== strlen($json)) {
+        throw new RuntimeException('Cannot clear the recent error list.');
+    }
+    chmod($temporary, 0600);
+    if (!rename($temporary, $path)) {
+        unlink($temporary);
+        throw new RuntimeException('Cannot save the cleared error list.');
+    }
 }
 
 function site_settings(): array
@@ -160,10 +184,15 @@ function set_member_policy(array $user, string $key, string $action): void
 }
 function admin_action(string $path, array $user, array $all): bool
 {
-    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup', '/admin/backups/archives', '/admin/storage/scan'], true)) {
+    if (!in_array($path, ['/admin/member', '/admin/settings', '/admin/category', '/admin/comment', '/admin/notifications/send', '/admin/icon', '/admin/discord', '/admin/backups/cleanup', '/admin/backups/archives', '/admin/storage/scan', '/admin/errors/clear'], true)) {
         return false;
     }
     require_admin($user);
+    if ($path === '/admin/errors/clear') {
+        clear_recent_application_errors();
+        $_SESSION['notice'] = 'Recent error history cleared. New errors will appear here; the server log is retained.';
+        redirect_to('/admin/health#recent-errors');
+    }
     if ($path === '/admin/storage/scan') {
         $result = storage_scan_step(5.0, param($_POST, 'restart') === '1');
         $_SESSION['notice'] = $result['complete'] ? 'Storage scan completed.' : 'Storage scan saved its progress. Continue to measure the remaining files.';

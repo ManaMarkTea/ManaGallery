@@ -24,12 +24,13 @@ $held = (int)query('SELECT COUNT(*) FROM comments WHERE deleted=0 AND moderation
 <p><?= number_format($imports) ?> imported identities &middot; <?= number_format((int)query('SELECT COUNT(*) FROM imported_accounts WHERE local_user_id IS NOT NULL')->fetchColumn()) ?> activated accounts</p>
 <p>Extensions: <?php foreach (['pdo_sqlite', 'gd', 'mbstring', 'fileinfo', 'sodium', 'openssl', 'curl', 'zip'] as $extension): ?><span class="status-pill"><?= e($extension) ?>: <?= extension_loaded($extension) ? 'Available' : 'Missing' ?></span> <?php endforeach; ?></p></section>
 <section class="prototype-panel">
-    <h2>Recent application errors</h2>
+    <h2 id="recent-errors">Recent application errors</h2>
     <p class="help">Match the reference shown on an error page to its entry here. Requests blocked by the hosting provider before PHP runs will not appear in this log.</p>
     <?php $applicationErrors = recent_application_errors(); ?>
     <?php if (!$applicationErrors): ?>
-        <p>No application errors with request references have been recorded.</p>
+        <p>No recent application errors to display.</p>
     <?php endif; ?>
+    <?php if ($applicationErrors): ?><form method="post" action="/admin/errors/clear"><?= csrf_field() ?><button>Clear recent errors</button></form><p class="help">Clears this displayed history. The server log is retained, and new errors will appear here.</p><?php endif; ?>
     <?php foreach ($applicationErrors as $applicationError): ?>
         <details>
             <summary><?= e($applicationError['requestId']) ?> · <?= e($applicationError['path'] ?? '') ?></summary>
